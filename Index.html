@@ -122,7 +122,7 @@
 
   /* ── Item rows ── */
   .item-list { border-radius:0 0 var(--radius) var(--radius); overflow:hidden; }
-  .item-row { display:grid; grid-template-columns:1fr 70px 56px;
+  .item-row { display:grid; grid-template-columns:1fr 70px 56px auto auto;
     padding:0 10px 0 12px; border-bottom:1px solid var(--border);
     align-items:center; min-height:50px; }
   .item-row:last-child { border-bottom:none; }
@@ -228,7 +228,7 @@
     padding:7px 12px; border-radius:var(--radius) var(--radius) 0 0;
     margin-top:12px; display:flex; justify-content:space-between; align-items:center; }
   .cat-item-row { display:grid;
-    grid-template-columns:1fr 54px 90px 60px 52px 48px;
+    grid-template-columns:1fr 54px 90px 80px 60px 40px 48px;
     padding:7px 10px 7px 12px; border-bottom:1px solid var(--border);
     font-size:.85rem; align-items:center; }
   .cat-item-row:last-child { border-bottom:none; }
@@ -236,7 +236,7 @@
   .cat-item-row:nth-child(even) { background:var(--even); }
   .cat-item-row.inactive { opacity:.42; }
   .cat-col-hdr { display:grid;
-    grid-template-columns:1fr 54px 90px 60px 52px 48px;
+    grid-template-columns:1fr 54px 90px 80px 60px 40px 48px;
     padding:5px 10px 5px 12px; font-size:.72rem; font-weight:700;
     color:var(--muted); text-transform:uppercase; letter-spacing:.4px;
     background:#fff; border-bottom:1px solid var(--border); }
@@ -268,7 +268,7 @@
   .modal-footer { display:flex; gap:10px; justify-content:flex-end; padding-top:4px; }
 
   @media (min-width:600px) {
-    .item-row { grid-template-columns:1fr 80px 60px; }
+    .item-row { grid-template-columns:1fr 80px 60px auto auto; }
     .count-input { width:70px; }
     .order-badge { width:56px; }
   }
@@ -276,6 +276,50 @@
     .cat-item-row, .cat-col-hdr { grid-template-columns:1fr 54px 70px 48px; }
     .hide-sm { display:none; }
   }
+  
+  /* ── Catalog print ── */
+  @media print {
+    #print-catalog { display: block !important; }
+    .no-print { display: none !important; }
+    header, .tabs, .save-bar, #panel-count, #panel-po,
+    #panel-summary, #panel-history, #panel-catalog,
+    #login-screen, #modal-overlay, #toast { display: none !important; }
+    body { background: #fff; }
+    .print-cat-header { background: #1a3a5c !important; color: #fff !important;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+  #print-catalog { display: none; }
+  .print-cat-header { background: #1a3a5c; color: #fff; padding: 6px 12px;
+    font-size: .8rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .5px; margin-top: 14px; }
+  .print-table { width: 100%; border-collapse: collapse; font-size: .82rem;
+    margin-bottom: 4px; }
+  .print-table th { background: #d6e4f0; color: #1a3a5c; padding: 5px 8px;
+    text-align: left; font-size: .72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .3px; }
+  .print-table td { padding: 5px 8px; border-bottom: 1px solid #d0d8e0; }
+  .print-table tr:last-child td { border-bottom: none; }
+  .print-table tr:nth-child(even) td { background: #f7fafc; }
+
+  /* ── Reorder arrows ── */
+  .reorder-btns { display: flex; flex-direction: column; gap: 1px; }
+  .reorder-btn { background: none; border: none; cursor: pointer;
+    color: var(--muted); font-size: .75rem; padding: 1px 4px; line-height: 1;
+    border-radius: 3px; }
+  .reorder-btn:hover { background: var(--cat-bg); color: var(--navy); }
+  .reorder-btn:disabled { opacity: .2; cursor: default; }
+
+  /* ── Usage columns in count tab ── */
+  .usage-col { display: flex; flex-direction: column; align-items: center;
+    gap: 2px; padding: 5px 2px; min-width: 48px; }
+  .usage-col label { font-size: .6rem; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; white-space: nowrap; }
+  .usage-badge { width: 46px; height: 38px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .88rem; font-weight: 800; }
+  .usage-badge.no-data { background: #f0f0f0; color: #ccc; font-size: .7rem; }
+  .usage-badge.has-data { background: #f0f4ff; }
+
   @media print {
     header,.tabs,.save-bar,.search-wrap,.top-bar .progress,
     .key-hint,.count-input,.order-badge,.btn,#login-screen { display:none!important; }
@@ -393,6 +437,7 @@
 <div class="panel" id="panel-catalog">
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
     <button class="btn btn-success btn-sm" onclick="openAddModal()">+ Add Item</button>
+    <button class="btn btn-primary btn-sm no-print" onclick="printCatalog()">🖨 Print Catalog</button>
     <input type="text" id="cat-search" placeholder="Search catalog…"
       style="flex:1;min-width:130px;border:1.5px solid var(--border);border-radius:var(--radius);
              padding:7px 12px;font-size:.9rem;background:#fff;box-shadow:var(--shadow)"
@@ -489,8 +534,8 @@
 
 <script>
 // ── Configuration — edit these before publishing ───────────────────────────
-const SUPABASE_URL = 'https://zkonxyozzgpbhhnjnmdd.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inprb254eW96emdwYmhobmpubWRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3NDM0NTMsImV4cCI6MjA5MDMxOTQ1M30.xKFH-CkJv-dKFe_0aiErwbIoIigcC-s5iVFsNfNr7Hw';
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
 // PINs: add or remove as needed, format is 'PIN': 'role'
 // role must be 'staff' or 'manager'
@@ -607,6 +652,7 @@ function initApp() {
   document.getElementById('cnt-total').textContent = INVENTORY.length;
   renderCount();
   updateBadge('local');
+  loadRecentUsage();
 }
 
 // ── Tab switching ──────────────────────────────────────────────────────────
@@ -712,6 +758,7 @@ function renderCount() {
             onpaste="pasteSanitize(event)">
         </div>
         <div class="order-col"><label>Order</label>${ob}</div>
+        ${buildUsageCols(item.name)}
       </div>`;
     }
     html += '</div>';
@@ -1052,6 +1099,9 @@ function renderCatalog() {
     return;
   }
 
+  // Sort by sort_order then item_order BEFORE grouping so display order is correct
+  filtered.sort((a,b) => (a.sort_order||0) - (b.sort_order||0) || (a.item_order||0) - (b.item_order||0));
+
   // Group by category preserving sort_order
   const groups={}, groupOrder=[];
   for (const item of filtered) {
@@ -1063,6 +1113,7 @@ function renderCatalog() {
     <span>Item</span>
     <span style="text-align:center">PAR</span>
     <span>Vendor</span>
+    <span class="hide-sm">Pack</span>
     <span class="hide-sm" style="text-align:right">Price</span>
     <span style="text-align:center">Active</span>
     <span></span>
@@ -1079,6 +1130,8 @@ function renderCatalog() {
       const cls   = item.active ? '' : ' inactive';
       const icon  = item.active ? '✅' : '⬜';
       const price = item.price > 0 ? '$'+parseFloat(item.price).toFixed(2) : '—';
+      const isFirst = groups[cat].indexOf(item) === 0;
+      const isLast  = groups[cat].indexOf(item) === groups[cat].length - 1;
       html += `<div class="cat-item-row${cls}">
         <div>
           <span style="font-weight:600">${item.name}</span>
@@ -1086,12 +1139,21 @@ function renderCatalog() {
         </div>
         <div style="text-align:center;color:var(--navy);font-weight:600">${item.par}</div>
         <div style="font-size:.82rem;color:var(--muted)">${item.vendor||'—'}</div>
+        <div class="hide-sm" style="font-size:.8rem;color:var(--muted)">${item.pack||'—'}</div>
         <div class="hide-sm" style="text-align:right;font-size:.82rem;color:var(--muted)">${price}</div>
         <div style="text-align:center">
           <button class="toggle-btn" title="${item.active?'Deactivate':'Activate'}"
             onclick="toggleActive(${item.id},${item.active})">${icon}</button>
         </div>
-        <div><button class="edit-btn" onclick="openEditModal(${item.id})">Edit</button></div>
+        <div style="display:flex;gap:4px;align-items:center">
+          <div class="reorder-btns">
+            <button class="reorder-btn" onclick="moveItem(${item.id},'up')"
+              ${isFirst?'disabled':''} title="Move up">▲</button>
+            <button class="reorder-btn" onclick="moveItem(${item.id},'down')"
+              ${isLast?'disabled':''} title="Move down">▼</button>
+          </div>
+          <button class="edit-btn" onclick="openEditModal(${item.id})">Edit</button>
+        </div>
       </div>`;
     }
     html += '</div>';
@@ -1264,6 +1326,238 @@ async function saveItem() {
     btn.textContent=editingId?'Save Changes':'Add Item'; btn.disabled=false;
   }
 }
+
+// ── 2-week usage data ──────────────────────────────────────────────────────
+let usageData = {};   // { item_name: [week1_count, week2_count] }
+
+async function loadRecentUsage() {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return;
+  try {
+    // Fetch last 3 weeks of data so we can calculate usage for 2 weeks
+    // Usage formula: prev_count + (order_cases * units_case) - curr_count
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/inventory_counts` +
+      `?select=week_date,item_name,count_value,order_cases` +
+      `&order=week_date.desc&limit=3000`,
+      { headers: supaHeaders() }
+    );
+    const rows = await res.json();
+    if (!Array.isArray(rows) || !rows.length) return;
+
+    // Normalise dates — Supabase may return "2026-01-09T00:00:00" or "2026-01-09"
+    const dateOnly = d => d ? String(d).substring(0, 10) : null;
+
+    // Get 3 most recent distinct week dates (need 3 to calc 2 weeks of usage)
+    const allWeeks = [...new Set(rows.map(r => dateOnly(r.week_date)))].filter(Boolean).sort();
+    const weeks    = allWeeks.slice(-3);  // [oldest, middle, newest]
+
+    // Build lookup: item -> { "YYYY-MM-DD": { count, order_cases } }
+    const byItem = {};
+    for (const row of rows) {
+      const wd = dateOnly(row.week_date);
+      if (!weeks.includes(wd)) continue;
+      if (!byItem[row.item_name]) byItem[row.item_name] = {};
+      byItem[row.item_name][wd] = {
+        count:      parseFloat(row.count_value) || 0,
+        orderCases: parseFloat(row.order_cases)  || 0,
+      };
+    }
+
+    // Calculate usage for each of the 2 most recent week transitions
+    // usageWeeks[i] = { date: "YYYY-MM-DD", usage: { itemName: number } }
+    usageData = { weeks: [] };
+
+    // We calculate usage for week[1]->week[2] and week[0]->week[1]
+    // i.e. for the 2 most recent completed weeks
+    const calcPairs = [
+      [weeks[weeks.length-3], weeks[weeks.length-2]],  // older pair
+      [weeks[weeks.length-2], weeks[weeks.length-1]],  // newer pair
+    ].filter(([a,b]) => a && b);
+
+    for (const [prevWeek, currWeek] of calcPairs) {
+      const usageForWeek = {};
+      // Get all items that appear in either week
+      const allItems = new Set([
+        ...Object.keys(byItem).filter(n => byItem[n][currWeek] !== undefined)
+      ]);
+      for (const itemName of allItems) {
+        const curr = byItem[itemName]?.[currWeek];
+        const prev = byItem[itemName]?.[prevWeek];
+        if (!curr || !prev) continue;
+
+        // Find units_case from INVENTORY — try exact match first, then case-insensitive
+        const invItem = INVENTORY.find(i => i.name === itemName)
+                     || INVENTORY.find(i => i.name.toLowerCase() === itemName.toLowerCase());
+        const unitsCase = invItem ? (invItem.units_case || 1) : 1;
+
+        // Usage = prev_count + (orders * units_per_case) - curr_count
+        const usage = prev.count + (prev.orderCases * unitsCase) - curr.count;
+        usageForWeek[itemName] = Math.round(usage * 10) / 10;
+      }
+      usageData.weeks.push({ date: currWeek, usage: usageForWeek });
+    }
+
+    renderCount();
+  } catch(e) {
+    console.error('Usage load error:', e);
+  }
+}
+
+// Format date as "M/D"
+const fmtDate = d => { const dt = new Date(d+'T12:00:00'); return `${dt.getMonth()+1}/${dt.getDate()}`; };
+
+function buildUsageCols(itemName) {
+  if (!usageData.weeks || !usageData.weeks.length) {
+    return `<div class="usage-col"><label>—</label><div class="usage-badge no-data">—</div></div>
+            <div class="usage-col"><label>—</label><div class="usage-badge no-data">—</div></div>`;
+  }
+  // Case-insensitive name lookup in case historical data has different casing
+  const findVal = (usageMap, name) => {
+    if (usageMap[name] !== undefined) return usageMap[name];
+    const key = Object.keys(usageMap).find(k => k.toLowerCase() === name.toLowerCase());
+    return key !== undefined ? usageMap[key] : undefined;
+  };
+  return usageData.weeks.map(w => {
+    const val = findVal(w.usage, itemName);
+    const lbl = fmtDate(w.date);
+    if (val === undefined || val === null) {
+      return `<div class="usage-col">
+        <label>${lbl}</label>
+        <div class="usage-badge no-data">—</div>
+      </div>`;
+    }
+    const color = val <= 0 ? 'color:#27ae60' : val > 20 ? 'color:#c0392b' : 'color:#1a3a5c';
+    return `<div class="usage-col">
+      <label>${lbl}</label>
+      <div class="usage-badge has-data" style="${color};font-size:.9rem">${val}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Move item up/down within its category ──────────────────────────────────
+async function moveItem(id, direction) {
+  const item = catalogData.find(i => i.id === id);
+  if (!item) return;
+
+  // Get all items in same category sorted by current item_order
+  const catItems = catalogData
+    .filter(i => i.category === item.category)
+    .sort((a, b) => (a.item_order||0) - (b.item_order||0));
+
+  const idx = catItems.findIndex(i => i.id === id);
+  const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= catItems.length) return;
+
+  const swapItem = catItems[swapIdx];
+
+  // If item_orders are equal (e.g. all 0 from old seed), assign sequential values first
+  if (catItems.some((it, i) => i > 0 && (it.item_order||0) === (catItems[i-1].item_order||0))) {
+    catItems.forEach((it, i) => { it.item_order = it.item_order ? it.item_order * 100 + i : (i + 1) * 10; });
+  }
+
+  // Swap item_order values between the two items
+  const tempOrder     = item.item_order;
+  item.item_order     = swapItem.item_order;
+  swapItem.item_order = tempOrder;
+
+  // Re-render immediately so it feels instant
+  renderCatalog();
+
+  // Persist to Supabase
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return;
+  try {
+    await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/catalog?id=eq.${item.id}`, {
+        method: 'PATCH',
+        headers: { ...supaHeaders(), 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ item_order: item.item_order }),
+      }),
+      fetch(`${SUPABASE_URL}/rest/v1/catalog?id=eq.${swapItem.id}`, {
+        method: 'PATCH',
+        headers: { ...supaHeaders(), 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ item_order: swapItem.item_order }),
+      }),
+    ]);
+  } catch(e) {
+    toast('⚠ Reorder save failed'); console.error(e);
+  }
+}
+
+// ── Print catalog ──────────────────────────────────────────────────────────
+function printCatalog() {
+  // Group active items by category in sort order
+  const active = catalogData
+    .filter(i => i.active)
+    .sort((a, b) => (a.sort_order - b.sort_order) || (a.item_order - b.item_order));
+
+  const groups = {};
+  const groupOrder = [];
+  for (const item of active) {
+    if (!groups[item.category]) { groups[item.category] = []; groupOrder.push(item.category); }
+    groups[item.category].push(item);
+  }
+
+  let body = `
+    <div style="font-family:Arial,sans-serif;padding:20px;max-width:900px;margin:0 auto">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:16px;border-bottom:2px solid #1a3a5c;padding-bottom:10px">
+        <div>
+          <div style="font-size:1.3rem;font-weight:700;color:#1a3a5c">Austin Grind — Item Catalog</div>
+          <div style="font-size:.85rem;color:#666;margin-top:2px">Printed: ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div>
+        </div>
+        <div style="font-size:.82rem;color:#666">${active.length} active items · ${groupOrder.length} categories</div>
+      </div>`;
+
+  for (const cat of groupOrder) {
+    const items = groups[cat];
+    body += `
+      <div style="background:#1a3a5c;color:#fff;padding:5px 10px;font-size:.78rem;
+        font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:14px">
+        ${cat}
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+        <thead>
+          <tr style="background:#d6e4f0">
+            <th style="padding:5px 8px;text-align:left;font-size:.72rem;color:#1a3a5c;font-weight:700;text-transform:uppercase">Item</th>
+            <th style="padding:5px 8px;text-align:left;font-size:.72rem;color:#1a3a5c;font-weight:700;text-transform:uppercase">Vendor</th>
+            <th style="padding:5px 8px;text-align:left;font-size:.72rem;color:#1a3a5c;font-weight:700;text-transform:uppercase">Pack</th>
+            <th style="padding:5px 8px;text-align:center;font-size:.72rem;color:#1a3a5c;font-weight:700;text-transform:uppercase">Unit</th>
+            <th style="padding:5px 8px;text-align:center;font-size:.72rem;color:#1a3a5c;font-weight:700;text-transform:uppercase">PAR</th>
+            <th style="padding:5px 8px;text-align:right;font-size:.72rem;color:#1a3a5c;font-weight:700;text-transform:uppercase">Price/Case</th>
+          </tr>
+        </thead>
+        <tbody>`;
+    items.forEach((item, idx) => {
+      const bg = idx % 2 === 0 ? '#ffffff' : '#f7fafc';
+      const price = item.price > 0 ? '$' + parseFloat(item.price).toFixed(2) : '—';
+      body += `
+          <tr style="background:${bg}">
+            <td style="padding:5px 8px;font-weight:600;border-bottom:1px solid #e0e0e0">${item.name}</td>
+            <td style="padding:5px 8px;color:#555;border-bottom:1px solid #e0e0e0">${item.vendor||'—'}</td>
+            <td style="padding:5px 8px;color:#555;border-bottom:1px solid #e0e0e0">${item.pack||'—'}</td>
+            <td style="padding:5px 8px;text-align:center;color:#555;border-bottom:1px solid #e0e0e0">${item.unit||'—'}</td>
+            <td style="padding:5px 8px;text-align:center;font-weight:700;color:#1a3a5c;border-bottom:1px solid #e0e0e0">${item.par}</td>
+            <td style="padding:5px 8px;text-align:right;border-bottom:1px solid #e0e0e0">${price}</td>
+          </tr>`;
+    });
+    body += `</tbody></table>`;
+  }
+
+  body += `</div>`;
+
+  // Open print window
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <title>Austin Grind Catalog</title>
+    <style>
+      @media print { @page { margin: 0.6in; } }
+      body { margin: 0; }
+    </style>
+  </head><body>${body}</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 300);
+}
+
 </script>
 </body>
 </html>
