@@ -1,0 +1,12 @@
+# netlify.toml
+# Netlify build configuration
+# Generates config.js from environment variables at deploy time
+
+[build]
+  command   = "echo 'window.SUPABASE_URL="'$SUPABASE_URL'"; window.SUPABASE_KEY="'$SUPABASE_KEY'";' > config.js"
+  publish   = "."
+
+[[headers]]
+  for = "/config.js"
+  [headers.values]
+    Cache-Control = "no-store"

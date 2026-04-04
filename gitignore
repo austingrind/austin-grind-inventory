@@ -1,0 +1,3 @@
+# .gitignore
+# Never commit credentials to GitHub
+config.js
