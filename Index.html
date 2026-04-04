@@ -993,35 +993,95 @@ async function loadHistory() {
       `<div style="padding:32px;text-align:center;color:var(--muted)">Configure Supabase credentials to load history.</div>`;
     return;
   }
-  const from=document.getElementById('hist-from').value;
-  const to=document.getElementById('hist-to').value;
-  const item=document.getElementById('hist-item').value.trim();
-  let url=`${SUPABASE_URL}/rest/v1/weekly_summary?week_date=gte.${from}&week_date=lte.${to}&order=week_date.desc,category.asc,item_name.asc&limit=1000`;
-  if(item) url+=`&item_name=ilike.*${encodeURIComponent(item)}*`;
-  document.getElementById('history-body').innerHTML='<div style="padding:24px;text-align:center;color:var(--muted)">Loading…</div>';
+  const from = document.getElementById('hist-from').value;
+  const to   = document.getElementById('hist-to').value;
+  const item = document.getElementById('hist-item').value.trim();
+
+  // Query inventory_counts table directly (views with window functions
+  // are not supported by the Supabase REST API)
+  let url = `${SUPABASE_URL}/rest/v1/inventory_counts`
+    + `?select=week_date,item_name,category,vendor,par,count_value,shortage,order_cases,price_per_case,line_total,submitted_by`
+    + `&week_date=gte.${from}&week_date=lte.${to}`
+    + `&order=week_date.desc,category.asc,item_name.asc&limit=2000`;
+  if (item) url += `&item_name=ilike.*${encodeURIComponent(item)}*`;
+
+  document.getElementById('history-body').innerHTML =
+    '<div style="padding:24px;text-align:center;color:var(--muted)">Loading…</div>';
+
   try {
-    const data=await fetch(url,{headers:supaHeaders()}).then(r=>r.json());
-    if(!data.length){document.getElementById('history-body').innerHTML='<div style="padding:32px;text-align:center;color:var(--muted)">No records found.</div>';return;}
-    window._histData=data;
-    let html=`<div style="overflow-x:auto"><table class="hist-table"><thead><tr>
+    const res  = await fetch(url, { headers: supaHeaders() });
+    const data = await res.json();
+
+    if (!Array.isArray(data) || !data.length) {
+      document.getElementById('history-body').innerHTML =
+        '<div style="padding:32px;text-align:center;color:var(--muted)">No records found for that date range.</div>';
+      return;
+    }
+
+    window._histData = data;
+
+    // Calculate rolling 4-week average shortage per item client-side
+    // Group by item, sort by date, compute rolling avg
+    const itemWeeks = {};
+    for (const r of [...data].reverse()) {  // oldest first for rolling calc
+      const key = r.item_name;
+      if (!itemWeeks[key]) itemWeeks[key] = [];
+      itemWeeks[key].push(parseFloat(r.shortage) || 0);
+    }
+
+    // Build a lookup: item+date -> 4wk avg
+    const avgLookup = {};
+    for (const [name, shorts] of Object.entries(itemWeeks)) {
+      shorts.forEach((_, i) => {
+        const slice = shorts.slice(Math.max(0, i-3), i+1);
+        const avg   = slice.reduce((s,v)=>s+v,0) / slice.length;
+        avgLookup[`${name}__${i}`] = Math.round(avg * 10) / 10;
+      });
+    }
+
+    // Track item index for avg lookup
+    const itemIdx = {};
+
+    let html = `<div style="overflow-x:auto"><table class="hist-table"><thead><tr>
       <th>Week</th><th>Item</th><th>Category</th>
       <th>Count</th><th>PAR</th><th>Shortage</th>
-      <th>Cases</th><th>Total</th><th>4wk Avg</th>
+      <th>Cases</th><th>Line Total</th><th>4wk Avg</th>
     </tr></thead><tbody>`;
-    for(const r of data){
-      const rs=r.shortage>0?'color:var(--red)':'';
-      html+=`<tr><td>${r.week_date}</td><td><strong>${r.item_name}</strong></td>
-        <td style="font-size:.75rem;color:var(--muted)">${r.category}</td>
-        <td>${r.count_value}</td><td>${r.par}</td>
-        <td style="${rs}">${r.shortage>0?r.shortage:'—'}</td>
-        <td style="font-weight:700;color:var(--navy)">${r.order_cases||'—'}</td>
-        <td>${r.line_total?'$'+parseFloat(r.line_total).toFixed(2):'—'}</td>
-        <td style="color:var(--muted)">${r.avg_shortage_4wk??'—'}</td></tr>`;
+
+    for (const r of data) {
+      const shortage  = parseFloat(r.shortage) || 0;
+      const rs        = shortage > 0 ? 'color:var(--red)' : '';
+      const dateStr   = r.week_date ? String(r.week_date).substring(0, 10) : '';
+      const lineTotal = r.line_total ? '$' + parseFloat(r.line_total).toFixed(2) : '—';
+
+      // Get 4wk avg for this item
+      if (itemIdx[r.item_name] === undefined) itemIdx[r.item_name] = 0;
+      else itemIdx[r.item_name]++;
+      const weeks4 = itemWeeks[r.item_name] || [];
+      const revIdx  = weeks4.length - 1 - itemIdx[r.item_name];
+      const slice4  = weeks4.slice(Math.max(0, revIdx-3), revIdx+1);
+      const avg4    = slice4.length ? Math.round(slice4.reduce((s,v)=>s+v,0) / slice4.length * 10) / 10 : '—';
+
+      html += `<tr>
+        <td>${dateStr}</td>
+        <td><strong>${r.item_name}</strong></td>
+        <td style="font-size:.75rem;color:var(--muted)">${r.category||''}</td>
+        <td>${r.count_value}</td>
+        <td>${r.par}</td>
+        <td style="${rs}">${shortage > 0 ? shortage : '—'}</td>
+        <td style="font-weight:700;color:var(--navy)">${r.order_cases || '—'}</td>
+        <td>${lineTotal}</td>
+        <td style="color:var(--muted)">${avg4}</td>
+      </tr>`;
     }
-    html+=`</tbody></table></div><div style="padding:8px 4px;font-size:.75rem;color:var(--muted)">${data.length} records</div>`;
-    document.getElementById('history-body').innerHTML=html;
+
+    html += `</tbody></table></div>
+      <div style="padding:8px 4px;font-size:.75rem;color:var(--muted)">${data.length} records</div>`;
+    document.getElementById('history-body').innerHTML = html;
+
   } catch(e) {
-    document.getElementById('history-body').innerHTML='<div style="padding:32px;text-align:center;color:var(--red)">Error loading. Check console.</div>';
+    document.getElementById('history-body').innerHTML =
+      `<div style="padding:32px;text-align:center;color:var(--red)">Error loading history. Check console.</div>`;
     console.error(e);
   }
 }
