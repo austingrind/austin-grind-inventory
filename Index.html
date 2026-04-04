@@ -682,6 +682,8 @@ function onWeekChange() {
         {month:'short', day:'numeric', year:'numeric'})
     : 'Set week date below';
   document.getElementById('hdr-week').textContent = lbl;
+  // Reload usage data relative to the new week date
+  loadRecentUsage();
 }
 
 // ── Badge / toast ──────────────────────────────────────────────────────────
@@ -1399,26 +1401,47 @@ let usageData = {};   // { item_name: [week1_count, week2_count] }
 
 async function loadRecentUsage() {
   if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return;
-  try {
-    // Fetch last 3 weeks of data so we can calculate usage for 2 weeks
-    // Usage formula: prev_count + (order_cases * units_case) - curr_count
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/inventory_counts` +
-      `?select=week_date,item_name,count_value,order_cases` +
-      `&order=week_date.desc&limit=3000`,
-      { headers: supaHeaders() }
-    );
-    const rows = await res.json();
-    if (!Array.isArray(rows) || !rows.length) return;
 
-    // Normalise dates — Supabase may return "2026-01-09T00:00:00" or "2026-01-09"
+  // Get the "Week of" date from the field — use today's week if not set
+  const weekOfRaw = document.getElementById('week-date').value;
+  if (!weekOfRaw) return;
+
+  // We need data from the 2 weeks BEFORE the current "Week of" date.
+  // Query all rows on or before the Week Of date, ordered descending,
+  // so we get the most recent available data.
+  // We fetch enough rows to cover ~3 weeks across ~202 items = 700 rows.
+  const url = `${SUPABASE_URL}/rest/v1/inventory_counts`
+    + `?select=week_date,item_name,count_value,order_cases`
+    + `&week_date=lte.${weekOfRaw}`
+    + `&order=week_date.desc&limit=700`;
+
+  try {
+    const res  = await fetch(url, { headers: supaHeaders() });
+    const rows = await res.json();
+    if (!Array.isArray(rows) || !rows.length) {
+      usageData = { weeks: [] };
+      renderCount();
+      return;
+    }
+
+    // Normalise all dates to YYYY-MM-DD
     const dateOnly = d => d ? String(d).substring(0, 10) : null;
 
-    // Get 3 most recent distinct week dates (need 3 to calc 2 weeks of usage)
-    const allWeeks = [...new Set(rows.map(r => dateOnly(r.week_date)))].filter(Boolean).sort();
-    const weeks    = allWeeks.slice(-3);  // [oldest, middle, newest]
+    // Find the 3 most recent distinct weeks on or before the Week Of date
+    const allWeeks = [...new Set(rows.map(r => dateOnly(r.week_date)))]
+      .filter(Boolean).sort();
+    // We want the 2 weeks immediately before "Week Of" (not the current week itself,
+    // since staff haven't counted yet — unless they already saved one).
+    // Take up to the last 3 available weeks.
+    const weeks = allWeeks.slice(-3);
 
-    // Build lookup: item -> { "YYYY-MM-DD": { count, order_cases } }
+    if (weeks.length < 2) {
+      usageData = { weeks: [] };
+      renderCount();
+      return;
+    }
+
+    // Build lookup: item -> { "YYYY-MM-DD": { count, orderCases } }
     const byItem = {};
     for (const row of rows) {
       const wd = dateOnly(row.week_date);
@@ -1430,35 +1453,29 @@ async function loadRecentUsage() {
       };
     }
 
-    // Calculate usage for each of the 2 most recent week transitions
-    // usageWeeks[i] = { date: "YYYY-MM-DD", usage: { itemName: number } }
+    // Calculate usage for the 2 most recent consecutive week pairs
+    // Usage = prev_count + (prev_order_cases × units_per_case) − curr_count
     usageData = { weeks: [] };
 
-    // We calculate usage for week[1]->week[2] and week[0]->week[1]
-    // i.e. for the 2 most recent completed weeks
-    const calcPairs = [
-      [weeks[weeks.length-3], weeks[weeks.length-2]],  // older pair
-      [weeks[weeks.length-2], weeks[weeks.length-1]],  // newer pair
-    ].filter(([a,b]) => a && b);
+    const pairs = [];
+    for (let i = 1; i < weeks.length; i++) {
+      pairs.push([weeks[i-1], weeks[i]]);
+    }
 
-    for (const [prevWeek, currWeek] of calcPairs) {
+    for (const [prevWeek, currWeek] of pairs) {
       const usageForWeek = {};
-      // Get all items that appear in either week
-      const allItems = new Set([
-        ...Object.keys(byItem).filter(n => byItem[n][currWeek] !== undefined)
-      ]);
+      const allItems = new Set(
+        Object.keys(byItem).filter(n =>
+          byItem[n][currWeek] !== undefined && byItem[n][prevWeek] !== undefined
+        )
+      );
       for (const itemName of allItems) {
-        const curr = byItem[itemName]?.[currWeek];
-        const prev = byItem[itemName]?.[prevWeek];
-        if (!curr || !prev) continue;
-
-        // Find units_case from INVENTORY — try exact match first, then case-insensitive
-        const invItem = INVENTORY.find(i => i.name === itemName)
-                     || INVENTORY.find(i => i.name.toLowerCase() === itemName.toLowerCase());
+        const curr      = byItem[itemName][currWeek];
+        const prev      = byItem[itemName][prevWeek];
+        const invItem   = INVENTORY.find(i => i.name === itemName)
+                       || INVENTORY.find(i => i.name.toLowerCase() === itemName.toLowerCase());
         const unitsCase = invItem ? (invItem.units_case || 1) : 1;
-
-        // Usage = prev_count + (orders * units_per_case) - curr_count
-        const usage = prev.count + (prev.orderCases * unitsCase) - curr.count;
+        const usage     = prev.count + (prev.orderCases * unitsCase) - curr.count;
         usageForWeek[itemName] = Math.round(usage * 10) / 10;
       }
       usageData.weeks.push({ date: currWeek, usage: usageForWeek });
@@ -1467,6 +1484,7 @@ async function loadRecentUsage() {
     renderCount();
   } catch(e) {
     console.error('Usage load error:', e);
+    usageData = { weeks: [] };
   }
 }
 
