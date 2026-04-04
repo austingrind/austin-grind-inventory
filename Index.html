@@ -534,8 +534,7 @@
 
 <script>
 // ── Configuration — edit these before publishing ───────────────────────────
-const SUPABASE_URL = 'https://zkonxyozzgpbhhnjnmdd.supabase.co
-';
+const SUPABASE_URL = 'https://zkonxyozzgpbhhnjnmdd.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inprb254eW96emdwYmhobmpubWRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3NDM0NTMsImV4cCI6MjA5MDMxOTQ1M30.xKFH-CkJv-dKFe_0aiErwbIoIigcC-s5iVFsNfNr7Hw';
 
 // PINs: add or remove as needed, format is 'PIN': 'role'
@@ -732,7 +731,7 @@ function renderCount() {
     }).length;
     html += `<div class="cat-header">
       <span>${cat}</span>
-      <span style="font-weight:500;opacity:.8">${done}/${items.length}${low?` · <span style="color:#c0392b">${low} low</span>`:''}</span>
+      <span style="font-weight:500;opacity:.8">${done}/${items.length}${low ? ' · <span style="color:#c0392b">' + low + ' low</span>' : ''}</span>
     </div><div class="item-list">`;
     for (const item of items) {
       const cnt  = counts[item.name];
@@ -752,7 +751,7 @@ function renderCount() {
             <span class="par-badge">PAR ${item.par}</span>
             ${low2 ? '<span class="low-badge">LOW</span>' : ''}
           </div>
-          <div class="item-meta">${SKU_MAP[item.name]?`<span style="font-family:monospace;font-weight:700;color:#1a3a5c">${SKU_MAP[item.name]}</span> · `:''}${item.unit} · ${item.vendor}</div>
+          <div class="item-meta">${SKU_MAP[item.name] ? '<span style="font-family:monospace;font-weight:700;color:#1a3a5c">' + SKU_MAP[item.name] + '</span> · ' : ''}${item.unit} · ${item.vendor}</div>
         </div>
         <div class="count-col">
           <label>Count</label>
@@ -1202,7 +1201,7 @@ function renderCatalog() {
         <div>
           <span style="font-weight:600">${item.name}</span>
           <span style="font-size:.72rem;color:var(--muted);margin-left:5px">${item.unit||''}</span>
-          ${item.sku ? `<span style="font-size:.65rem;font-weight:700;color:#fff;background:#1a3a5c;border-radius:3px;padding:1px 5px;margin-left:4px;vertical-align:middle;font-family:monospace">${item.sku}</span>` : ''}
+          ${item.sku ? '<span style="font-size:.65rem;font-weight:700;color:#fff;background:#1a3a5c;border-radius:3px;padding:1px 5px;margin-left:4px;vertical-align:middle;font-family:monospace">' + item.sku + '</span>' : ''}
         </div>
         <div class="hide-sm" style="font-family:monospace;font-size:.75rem;color:#1a3a5c;font-weight:700">${item.sku||'—'}</div>
         <div style="text-align:center;color:var(--navy);font-weight:600">${item.par}</div>
