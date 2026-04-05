@@ -1,0 +1,2 @@
+window.SUPABASE_URL="https://zkonxyozzgpbhhnjnmdd.supabase.co";
+window.SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inprb254eW96emdwYmhobmpubWRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3NDM0NTMsImV4cCI6MjA5MDMxOTQ1M30.xKFH-CkJv-dKFe_0aiErwbIoIigcC-s5iVFsNfNr7Hw";
