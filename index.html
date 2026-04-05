@@ -301,6 +301,29 @@
   .print-table tr:last-child td { border-bottom: none; }
   .print-table tr:nth-child(even) td { background: #f7fafc; }
 
+
+  /* ── Filter / sort bars ── */
+  .filter-sort-bar { background:#fff; border-radius:var(--radius);
+    padding:8px 12px; margin-bottom:10px; box-shadow:var(--shadow);
+    display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .filter-sort-bar select, .filter-sort-bar input[type=text] {
+    border:1.5px solid var(--border); border-radius:6px;
+    padding:5px 9px; font-size:.82rem; background:#fff; color:var(--text); }
+  .filter-sort-bar select:focus, .filter-sort-bar input:focus {
+    outline:none; border-color:var(--blue); }
+  .filter-sort-bar label { font-size:.75rem; font-weight:700;
+    color:var(--muted); white-space:nowrap; }
+  .filter-chip { display:inline-flex; align-items:center; gap:4px;
+    background:var(--blue-lt); border:1.5px solid #b0cce8; border-radius:12px;
+    padding:2px 10px; font-size:.75rem; font-weight:600; color:var(--navy); }
+  .filter-chip button { background:none; border:none; cursor:pointer;
+    color:var(--muted); font-size:.9rem; padding:0; line-height:1; }
+  .sort-btn { background:none; border:1.5px solid var(--border); border-radius:5px;
+    padding:4px 10px; font-size:.75rem; font-weight:700; color:var(--muted);
+    cursor:pointer; white-space:nowrap; }
+  .sort-btn.active { background:var(--navy); color:#fff; border-color:var(--navy); }
+  .filter-count { font-size:.75rem; color:var(--muted); margin-left:auto; white-space:nowrap; }
+
   /* ── Reorder arrows ── */
   .reorder-btns { display: flex; flex-direction: column; gap: 1px; }
   .reorder-btn { background: none; border: none; cursor: pointer;
@@ -394,6 +417,28 @@
     <span><kbd>Shift+Enter</kbd> / <kbd>Shift+Tab</kbd> — previous</span>
     <span><kbd>↑</kbd> <kbd>↓</kbd> — move up/down</span>
   </div>
+  <div class="filter-sort-bar">
+    <label>Category:</label>
+    <select id="cnt-cat-filter" onchange="renderCount()">
+      <option value="">All categories</option>
+    </select>
+    <label>Sort:</label>
+    <select id="cnt-sort" onchange="renderCount()">
+      <option value="catalog">Catalog order</option>
+      <option value="name">Name A–Z</option>
+      <option value="shortage">Shortage ↓</option>
+      <option value="count">Count ↓</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+      <input type="checkbox" id="cnt-uncounted" onchange="renderCount()">
+      Uncounted only
+    </label>
+    <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+      <input type="checkbox" id="cnt-low" onchange="renderCount()">
+      Low / shortage only
+    </label>
+    <span class="filter-count" id="cnt-filter-count"></span>
+  </div>
   <div class="search-wrap">
     <input type="text" id="search" placeholder="Search items…" oninput="renderCount()">
   </div>
@@ -424,9 +469,33 @@
   <div class="filter-bar">
     <label>From:</label><input type="date" id="hist-from">
     <label>To:</label><input type="date" id="hist-to">
-    <label>Item:</label><input type="text" id="hist-item" placeholder="All items" style="width:150px">
+    <label>Item:</label><input type="text" id="hist-item" placeholder="All items" style="width:140px">
     <button class="btn btn-primary btn-sm" onclick="loadHistory()">Load</button>
     <button class="btn btn-sm" style="background:#555;color:#fff" onclick="downloadHistory()">⬇ Export CSV</button>
+  </div>
+  <div class="filter-sort-bar" id="hist-filter-bar" style="display:none">
+    <label>Category:</label>
+    <select id="hist-cat-filter" onchange="applyHistoryFilters()">
+      <option value="">All categories</option>
+    </select>
+    <label>Vendor:</label>
+    <select id="hist-vendor-filter" onchange="applyHistoryFilters()">
+      <option value="">All vendors</option>
+    </select>
+    <label>Sort by:</label>
+    <select id="hist-sort" onchange="applyHistoryFilters()">
+      <option value="catalog">Catalog order</option>
+      <option value="week_asc">Week ↑</option>
+      <option value="week_desc">Week ↓</option>
+      <option value="name">Name A–Z</option>
+      <option value="shortage">Shortage ↓</option>
+      <option value="order">Order Cases ↓</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+      <input type="checkbox" id="hist-shortage-only" onchange="applyHistoryFilters()">
+      Shortage only
+    </label>
+    <span class="filter-count" id="hist-filter-count"></span>
   </div>
   <div id="history-body">
     <div style="padding:32px;text-align:center;color:var(--muted)">Set a date range and click Load.</div>
@@ -447,6 +516,22 @@
              padding:7px 10px;font-size:.85rem;background:#fff"
       onchange="renderCatalog()">
       <option value="">All vendors</option>
+    </select>
+    <select id="cat-cat-filter"
+      style="border:1.5px solid var(--border);border-radius:var(--radius);
+             padding:7px 10px;font-size:.85rem;background:#fff"
+      onchange="renderCatalog()">
+      <option value="">All categories</option>
+    </select>
+    <select id="cat-sort"
+      style="border:1.5px solid var(--border);border-radius:var(--radius);
+             padding:7px 10px;font-size:.85rem;background:#fff"
+      onchange="renderCatalog()">
+      <option value="catalog">Catalog order</option>
+      <option value="name">Name A–Z</option>
+      <option value="par_desc">PAR ↓</option>
+      <option value="price_desc">Price ↓</option>
+      <option value="vendor">Vendor A–Z</option>
     </select>
     <label style="display:flex;align-items:center;gap:5px;font-size:.82rem;
       font-weight:600;color:var(--navy);white-space:nowrap;cursor:pointer">
@@ -717,14 +802,65 @@ function orderCases(item) {
 }
 
 // ── Render count ───────────────────────────────────────────────────────────
+function populateCountCatFilter() {
+  const sel = document.getElementById('cnt-cat-filter');
+  if (!sel || sel.options.length > 1) return;
+  const cats = [...new Set(INVENTORY.map(i => i.category))];
+  cats.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+}
+
 function renderCount() {
-  const q  = (document.getElementById('search').value || '').toLowerCase();
-  const el = document.getElementById('count-list');
-  const cats = {};
-  for (const item of INVENTORY) {
+  populateCountCatFilter();
+  const q         = (document.getElementById('search').value || '').toLowerCase();
+  const catFilt   = document.getElementById('cnt-cat-filter').value;
+  const sortBy    = document.getElementById('cnt-sort').value;
+  const uncounted = document.getElementById('cnt-uncounted').checked;
+  const lowOnly   = document.getElementById('cnt-low').checked;
+  const el        = document.getElementById('count-list');
+
+  // Filter INVENTORY
+  let items = INVENTORY.filter(item => {
+    if (catFilt && item.category !== catFilt) return false;
     if (q && !item.name.toLowerCase().includes(q) &&
-             !item.category.toLowerCase().includes(q)) continue;
-    (cats[item.category] = cats[item.category] || []).push(item);
+             !item.category.toLowerCase().includes(q)) return false;
+    if (uncounted && counts[item.name] !== undefined && counts[item.name] !== '') return false;
+    if (lowOnly) {
+      const c = counts[item.name];
+      if (c === undefined || c === '') return false;
+      if (parseFloat(c) >= item.par) return false;
+    }
+    return true;
+  });
+
+  // Sort
+  if (sortBy === 'name') {
+    items = [...items].sort((a,b) => a.name.localeCompare(b.name));
+  } else if (sortBy === 'shortage') {
+    items = [...items].sort((a,b) => {
+      const sa = counts[a.name] !== undefined ? Math.max(a.par - parseFloat(counts[a.name]||0), 0) : 0;
+      const sb = counts[b.name] !== undefined ? Math.max(b.par - parseFloat(counts[b.name]||0), 0) : 0;
+      return sb - sa;
+    });
+  } else if (sortBy === 'count') {
+    items = [...items].sort((a,b) => {
+      const ca = counts[a.name] !== undefined ? parseFloat(counts[a.name]) : -1;
+      const cb = counts[b.name] !== undefined ? parseFloat(counts[b.name]) : -1;
+      return cb - ca;
+    });
+  }
+  // default 'catalog' = INVENTORY order (already correct)
+
+  // Update filter count
+  const countEl = document.getElementById('cnt-filter-count');
+  if (countEl) countEl.textContent = items.length < INVENTORY.length
+    ? `${items.length} of ${INVENTORY.length} items` : '';
+
+  // Group by category (preserving sorted order)
+  const cats = {};
+  const catOrder = [];
+  for (const item of items) {
+    if (!cats[item.category]) { cats[item.category] = []; catOrder.push(item.category); }
+    cats[item.category].push(item);
   }
   let html = '';
   for (const [cat, items] of Object.entries(cats)) {
@@ -995,6 +1131,74 @@ function renderSummary() {
 }
 
 // ── History ────────────────────────────────────────────────────────────────
+
+// ── History filter / sort ─────────────────────────────────────────────────────
+function populateHistoryFilters(data) {
+  // Category filter
+  const catSel = document.getElementById('hist-cat-filter');
+  const prevCat = catSel.value;
+  catSel.innerHTML = '<option value="">All categories</option>';
+  const cats = [...new Set(data.map(r => r.category).filter(Boolean))].sort();
+  cats.forEach(c => catSel.insertAdjacentHTML('beforeend',
+    `<option value="${c}" ${c===prevCat?'selected':''}>${c}</option>`));
+
+  // Vendor filter
+  const vendSel = document.getElementById('hist-vendor-filter');
+  const prevVend = vendSel.value;
+  vendSel.innerHTML = '<option value="">All vendors</option>';
+  const vends = [...new Set(data.map(r => r.vendor).filter(Boolean))].sort();
+  vends.forEach(v => vendSel.insertAdjacentHTML('beforeend',
+    `<option value="${v}" ${v===prevVend?'selected':''}>${v}</option>`));
+
+  // Show filter bar
+  document.getElementById('hist-filter-bar').style.display = 'flex';
+}
+
+function applyHistoryFilters() {
+  const data = window._histData;
+  if (!data) return;
+
+  const catFilt      = document.getElementById('hist-cat-filter').value;
+  const vendFilt     = document.getElementById('hist-vendor-filter').value;
+  const sortBy       = document.getElementById('hist-sort').value;
+  const shortageOnly = document.getElementById('hist-shortage-only').checked;
+
+  // Build catalog order lookup
+  const catalogOrder = {};
+  INVENTORY.forEach(i => { catalogOrder[i.name] = { cat: i.cat_order||0, item: i.item_order||0 }; });
+
+  let filtered = data.filter(r => {
+    if (catFilt  && r.category !== catFilt)  return false;
+    if (vendFilt && r.vendor   !== vendFilt) return false;
+    if (shortageOnly && !(parseFloat(r.shortage) > 0)) return false;
+    return true;
+  });
+
+  // Sort
+  filtered = [...filtered].sort((a, b) => {
+    const dateA = String(a.week_date).substring(0,10);
+    const dateB = String(b.week_date).substring(0,10);
+    if (sortBy === 'week_asc')  return dateA.localeCompare(dateB);
+    if (sortBy === 'week_desc') return dateB.localeCompare(dateA);
+    if (sortBy === 'name')      return a.item_name.localeCompare(b.item_name);
+    if (sortBy === 'shortage')  return (parseFloat(b.shortage)||0) - (parseFloat(a.shortage)||0);
+    if (sortBy === 'order')     return (parseFloat(b.order_cases)||0) - (parseFloat(a.order_cases)||0);
+    // Default: catalog order, then week desc
+    const oa = catalogOrder[a.item_name] || {cat:9999, item:9999};
+    const ob = catalogOrder[b.item_name] || {cat:9999, item:9999};
+    if (oa.cat  !== ob.cat)  return oa.cat  - ob.cat;
+    if (oa.item !== ob.item) return oa.item - ob.item;
+    return dateB.localeCompare(dateA);
+  });
+
+  // Update count
+  document.getElementById('hist-filter-count').textContent =
+    filtered.length < data.length ? `${filtered.length} of ${data.length} records` : `${data.length} records`;
+
+  // Render table
+  renderHistoryTable(filtered);
+}
+
 async function loadHistory() {
   if (SUPABASE_URL==='YOUR_SUPABASE_URL') {
     document.getElementById('history-body').innerHTML=
@@ -1010,7 +1214,7 @@ async function loadHistory() {
   let url = `${SUPABASE_URL}/rest/v1/inventory_counts`
     + `?select=week_date,item_name,category,vendor,par,count_value,shortage,order_cases,price_per_case,line_total,submitted_by`
     + `&week_date=gte.${from}&week_date=lte.${to}`
-    + `&order=week_date.desc,category.asc,item_name.asc&limit=2000`;
+    + `&order=week_date.desc&limit=2000`;
   if (item) url += `&item_name=ilike.*${encodeURIComponent(item)}*`;
 
   document.getElementById('history-body').innerHTML =
@@ -1027,6 +1231,17 @@ async function loadHistory() {
     }
 
     window._histData = data;
+    populateHistoryFilters(data);
+    applyHistoryFilters();
+    return;  // rendering handled by applyHistoryFilters -> renderHistoryTable
+  } catch(e) {
+    document.getElementById('history-body').innerHTML =
+      `<div style="padding:32px;text-align:center;color:var(--red)">Error loading history. Check console.</div>`;
+    console.error(e);
+  }
+}
+
+function renderHistoryTable(data) {
 
     // Calculate rolling 4-week average shortage per item client-side
     // Group by item, sort by date, compute rolling avg
@@ -1087,12 +1302,9 @@ async function loadHistory() {
       <div style="padding:8px 4px;font-size:.75rem;color:var(--muted)">${data.length} records</div>`;
     document.getElementById('history-body').innerHTML = html;
 
-  } catch(e) {
-    document.getElementById('history-body').innerHTML =
-      `<div style="padding:32px;text-align:center;color:var(--red)">Error loading history. Check console.</div>`;
-    console.error(e);
-  }
+
 }
+
 
 function downloadHistory() {
   const data=window._histData;
@@ -1153,22 +1365,45 @@ function renderCatalog() {
   const vendorFilt = document.getElementById('cat-vendor-filter').value;
   const showInact  = document.getElementById('cat-show-inactive').checked;
 
-  const filtered = catalogData.filter(item => {
+  const catFilt2 = document.getElementById('cat-cat-filter').value;
+  const sortBy2  = document.getElementById('cat-sort').value;
+
+  let filtered = catalogData.filter(item => {
     if (!showInact && !item.active) return false;
     if (vendorFilt && item.vendor !== vendorFilt) return false;
+    if (catFilt2 && item.category !== catFilt2) return false;
     if (q && !item.name.toLowerCase().includes(q) &&
              !item.category.toLowerCase().includes(q) &&
              !item.vendor.toLowerCase().includes(q)) return false;
     return true;
   });
 
+  // Populate category filter dropdown
+  const catSel2 = document.getElementById('cat-cat-filter');
+  if (catSel2 && catSel2.options.length <= 1) {
+    const allCats = [...new Set(catalogData.map(i => i.category))].sort();
+    allCats.forEach(c => catSel2.insertAdjacentHTML('beforeend',
+      `<option value="${c}">${c}</option>`));
+  }
+
   if (!filtered.length) {
     document.getElementById('catalog-body').innerHTML='<div style="padding:40px;text-align:center;color:var(--muted)">No items match.</div>';
     return;
   }
 
-  // Sort by sort_order then item_order BEFORE grouping so display order is correct
-  filtered.sort((a,b) => (a.sort_order||0) - (b.sort_order||0) || (a.item_order||0) - (b.item_order||0));
+  // Sort based on selected sort option
+  if (sortBy2 === 'name') {
+    filtered = [...filtered].sort((a,b) => a.name.localeCompare(b.name));
+  } else if (sortBy2 === 'par_desc') {
+    filtered = [...filtered].sort((a,b) => (b.par||0) - (a.par||0));
+  } else if (sortBy2 === 'price_desc') {
+    filtered = [...filtered].sort((a,b) => (b.price||0) - (a.price||0));
+  } else if (sortBy2 === 'vendor') {
+    filtered = [...filtered].sort((a,b) => (a.vendor||'').localeCompare(b.vendor||''));
+  } else {
+    // Default: catalog order (sort_order, item_order)
+    filtered = [...filtered].sort((a,b) => (a.sort_order||0) - (b.sort_order||0) || (a.item_order||0) - (b.item_order||0));
+  }
 
   // Group by category preserving sort_order
   const groups={}, groupOrder=[];
