@@ -447,9 +447,15 @@
 
 <!-- ══ ORDERS ══ -->
 <div class="panel" id="panel-po">
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
     <button class="btn btn-success" onclick="downloadCSV()">⬇ Download CSV</button>
     <button class="btn btn-primary" onclick="window.print()">🖨 Print</button>
+    <select id="po-vendor-filter" onchange="renderPO()"
+      style="border:1.5px solid var(--border);border-radius:var(--radius);
+             padding:7px 10px;font-size:.85rem;background:#fff;flex:1;max-width:220px">
+      <option value="">All vendors</option>
+    </select>
+    <span id="po-filter-count" style="font-size:.78rem;color:var(--muted);white-space:nowrap"></span>
   </div>
   <div id="po-list"></div>
 </div>
@@ -1128,13 +1134,47 @@ async function saveCounts() {
 
 // ── PO ─────────────────────────────────────────────────────────────────────
 function renderPO() {
-  const byV = {};
   const poSrc = window._activeInventory || INVENTORY;
+
+  // Build full vendor list for filter dropdown
+  const byV = {};
   for (const item of poSrc) {
     const oc = orderCases(item);
     if (!oc) continue;
     (byV[item.vendor] = byV[item.vendor] || []).push({...item, oc});
   }
+
+  // Populate vendor filter dropdown (only vendors with items to order)
+  const sel = document.getElementById('po-vendor-filter');
+  if (sel) {
+    const prevVal = sel.value;
+    sel.innerHTML = '<option value="">All vendors</option>';
+    Object.keys(byV).sort().forEach(v => {
+      sel.insertAdjacentHTML('beforeend',
+        `<option value="${v}" ${v===prevVal?'selected':''}>${v} (${byV[v].length})</option>`);
+    });
+    // Restore selection if still valid
+    if (prevVal && byV[prevVal]) sel.value = prevVal;
+  }
+
+  // Apply vendor filter
+  const vendorFilt = sel?.value || '';
+  const filteredByV = vendorFilt
+    ? { [vendorFilt]: byV[vendorFilt] }
+    : byV;
+
+  // Update count badge
+  const countEl = document.getElementById('po-filter-count');
+  if (countEl) {
+    const totalVendors = Object.keys(byV).length;
+    const totalItems   = Object.values(byV).reduce((s,a)=>s+a.length, 0);
+    if (vendorFilt) {
+      countEl.textContent = `${(byV[vendorFilt]||[]).length} items · ${totalVendors} vendors total`;
+    } else {
+      countEl.textContent = totalItems ? `${totalItems} items across ${totalVendors} vendors` : '';
+    }
+  }
+
   const el = document.getElementById('po-list');
   if (!Object.keys(byV).length) {
     el.innerHTML = `<div class="no-orders"><div style="font-size:2.5rem;margin-bottom:8px">✅</div>
@@ -1142,8 +1182,14 @@ function renderPO() {
       <div style="margin-top:6px;color:#999">Enter counts on the Count tab first.</div></div>`;
     return;
   }
+
+  if (vendorFilt && !byV[vendorFilt]) {
+    el.innerHTML = `<div class="no-orders">No orders for <strong>${vendorFilt}</strong>.</div>`;
+    return;
+  }
+
   let html = '';
-  for (const [v, items] of Object.entries(byV).sort()) {
+  for (const [v, items] of Object.entries(filteredByV).sort()) {
     const total = items.reduce((s,i)=>s+(i.price>0?i.oc*i.price:0),0);
     html += `<div class="po-card"><div class="po-hdr">
       <span>📦 ${v}</span><span>${items.length} item${items.length>1?'s':''}</span></div>
@@ -1383,8 +1429,15 @@ function downloadHistory() {
 }
 
 function downloadCSV() {
-  const byV={};
-  for(const item of INVENTORY){const oc=orderCases(item);if(!oc)continue;(byV[item.vendor]=byV[item.vendor]||[]).push({...item,oc});}
+  const poSrc     = window._activeInventory || INVENTORY;
+  const vendorFilt = document.getElementById('po-vendor-filter')?.value || '';
+  const byV = {};
+  for (const item of poSrc) {
+    const oc = orderCases(item);
+    if (!oc) continue;
+    if (vendorFilt && item.vendor !== vendorFilt) continue;
+    (byV[item.vendor]=byV[item.vendor]||[]).push({...item,oc});
+  }
   if(!Object.keys(byV).length){toast('No items to order');return;}
   const week=document.getElementById('week-date').value||'unknown';
   let csv='Vendor,Item,Pack,Unit,PAR,Count,Order Cases,Price/Case,Line Total\n';
