@@ -281,9 +281,11 @@
   @media print {
     #print-catalog { display: block !important; }
     .no-print { display: none !important; }
-    header, .tabs, .save-bar, #panel-count, #panel-po,
+    header, .tabs, .save-bar, #panel-count,
     #panel-summary, #panel-history, #panel-catalog,
     #login-screen, #modal-overlay, #toast { display: none !important; }
+    #panel-po { display: block !important; padding: 0; }
+    .filter-sort-bar, #po-vendor-filter, #po-filter-count { display: none !important; }
     body { background: #fff; }
     .print-cat-header { background: #1a3a5c !important; color: #fff !important;
       -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -393,7 +395,7 @@
 </header>
 
 <div class="tabs" id="tab-bar">
-  <button class="active" onclick="showTab('count')">📋 Count</button>
+  <button class="active" onclick="showTab('count')">📋 Update Inventory</button>
   <button onclick="showTab('po')">🛒 Orders</button>
   <button onclick="showTab('summary')">📊 Summary</button>
   <button onclick="showTab('history')" class="mgr-tab">📅 History</button>
@@ -829,8 +831,41 @@ function onWeekChange() {
         {month:'short', day:'numeric', year:'numeric'})
     : 'Set week date below';
   document.getElementById('hdr-week').textContent = lbl;
-  // Reload usage data relative to the new week date
+  // Load any saved counts for this week from Supabase, then reload usage
+  if (w) loadSavedCounts(w);
   loadRecentUsage();
+}
+
+async function loadSavedCounts(weekDate) {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return;
+  try {
+    const res  = await fetch(
+      `${SUPABASE_URL}/rest/v1/inventory_counts` +
+      `?select=item_name,count_value,order_cases` +
+      `&week_date=eq.${weekDate}&limit=500`,
+      { headers: supaHeaders() }
+    );
+    const rows = await res.json();
+    if (!Array.isArray(rows) || !rows.length) return;
+
+    // Merge DB counts into local counts — DB takes precedence over localStorage
+    let changed = false;
+    for (const row of rows) {
+      if (row.count_value !== null && row.count_value !== undefined) {
+        counts[row.item_name] = parseFloat(row.count_value);
+        changed = true;
+      }
+    }
+    if (changed) {
+      localStorage.setItem('ag_counts', JSON.stringify(counts));
+      localStorage.setItem('ag_week', weekDate);
+      updateBadge('ok');
+      renderCount();
+      toast(`Loaded ${rows.length} saved counts for this week`);
+    }
+  } catch(e) {
+    console.warn('Could not load saved counts:', e);
+  }
 }
 
 // ── Badge / toast ──────────────────────────────────────────────────────────
