@@ -739,7 +739,66 @@ function initApp() {
   document.getElementById('hist-to').value   = today.toISOString().split('T')[0];
 
   onWeekChange();
+
+  // Load live catalog from Supabase so Count tab always uses
+  // up-to-date PAR, units_case, and unit values
+  loadCatalogForCount();
+}
   document.getElementById('cnt-total').textContent = INVENTORY.length;
+  renderCount();
+  updateBadge('local');
+  loadRecentUsage();
+}
+
+// ── Load live catalog for Count tab ───────────────────────────────────────────
+// Fetches active catalog items from Supabase so PAR/units_case/unit are always
+// current. Falls back to embedded INVENTORY if Supabase not configured.
+async function loadCatalogForCount() {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+    // Offline mode — use embedded INVENTORY as-is
+    document.getElementById('cnt-total').textContent = INVENTORY.length;
+    renderCount();
+    updateBadge('local');
+    loadRecentUsage();
+    return;
+  }
+  try {
+    const res  = await fetch(
+      `${SUPABASE_URL}/rest/v1/catalog?active=eq.true&order=sort_order.asc,item_order.asc&limit=500`,
+      { headers: supaHeaders() }
+    );
+    const data = await res.json();
+    if (Array.isArray(data) && data.length) {
+      // Merge Supabase catalog values into INVENTORY array
+      // This keeps item_order/cat_order intact while updating live fields
+      data.forEach(cat => {
+        const inv = INVENTORY.find(i =>
+          i.name === cat.name ||
+          i.name.toLowerCase() === cat.name.toLowerCase()
+        );
+        if (inv) {
+          inv.par        = parseFloat(cat.par)        || inv.par;
+          inv.units_case = parseFloat(cat.units_case) || inv.units_case;
+          inv.unit       = cat.unit  || inv.unit;
+          inv.pack       = cat.pack  || inv.pack;
+          inv.price      = parseFloat(cat.price)      || inv.price;
+          inv.vendor     = cat.vendor || inv.vendor;
+          inv.active     = cat.active;
+        }
+      });
+      // Remove inactive items from count view
+      const activeNames = new Set(data.filter(i => i.active).map(i => i.name));
+      // Filter INVENTORY to active only for rendering (don't mutate the array)
+      window._activeInventory = INVENTORY.filter(i =>
+        activeNames.has(i.name) ||
+        activeNames.has(i.name.toLowerCase())
+      );
+    }
+  } catch(e) {
+    console.warn('Could not load live catalog — using embedded data:', e);
+  }
+  document.getElementById('cnt-total').textContent =
+    (window._activeInventory || INVENTORY).length;
   renderCount();
   updateBadge('local');
   loadRecentUsage();
@@ -805,7 +864,8 @@ function orderCases(item) {
 function populateCountCatFilter() {
   const sel = document.getElementById('cnt-cat-filter');
   if (!sel || sel.options.length > 1) return;
-  const cats = [...new Set(INVENTORY.map(i => i.category))];
+  const src = window._activeInventory || INVENTORY;
+  const cats = [...new Set(src.map(i => i.category))];
   cats.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
 }
 
@@ -818,9 +878,11 @@ function renderCount() {
   const lowOnly   = document.getElementById('cnt-low').checked;
   const el        = document.getElementById('count-list');
 
-  // Filter INVENTORY
-  let items = INVENTORY.filter(item => {
-    if (catFilt && item.category !== catFilt) return false;
+  // Use live catalog if loaded, otherwise fall back to embedded INVENTORY
+  const source = window._activeInventory || INVENTORY;
+
+  // Filter from live catalog source
+  let items = source.filter(item => {
     if (q && !item.name.toLowerCase().includes(q) &&
              !item.category.toLowerCase().includes(q)) return false;
     if (uncounted && counts[item.name] !== undefined && counts[item.name] !== '') return false;
@@ -1000,7 +1062,8 @@ function setCount(input) {
 }
 
 function updateProgress() {
-  const done = INVENTORY.filter(i => counts[i.name] !== undefined && counts[i.name] !== '').length;
+  const src  = window._activeInventory || INVENTORY;
+  const done = src.filter(i => counts[i.name] !== undefined && counts[i.name] !== '').length;
   document.getElementById('cnt-done').textContent = done;
 }
 
@@ -1025,7 +1088,8 @@ async function saveCounts() {
   if (!week) { toast('Set the week date first'); return; }
   const staff = document.getElementById('staff-name').value || null;
   const rows  = [];
-  for (const item of INVENTORY) {
+  const saveSrc = window._activeInventory || INVENTORY;
+  for (const item of saveSrc) {
     const c = counts[item.name];
     if (c === undefined || c === '') continue;
     const oc = orderCases(item);
@@ -1067,7 +1131,8 @@ async function saveCounts() {
 // ── PO ─────────────────────────────────────────────────────────────────────
 function renderPO() {
   const byV = {};
-  for (const item of INVENTORY) {
+  const poSrc = window._activeInventory || INVENTORY;
+  for (const item of poSrc) {
     const oc = orderCases(item);
     if (!oc) continue;
     (byV[item.vendor] = byV[item.vendor] || []).push({...item, oc});
@@ -1109,8 +1174,9 @@ function renderPO() {
 
 // ── Summary ────────────────────────────────────────────────────────────────
 function renderSummary() {
-  const done  = INVENTORY.filter(i=>counts[i.name]!==undefined&&counts[i.name]!=='').length;
-  const short = INVENTORY.filter(i=>{const c=counts[i.name];return c!==undefined&&c!==''&&parseFloat(c)<i.par;});
+  const sumSrc = window._activeInventory || INVENTORY;
+  const done  = sumSrc.filter(i=>counts[i.name]!==undefined&&counts[i.name]!=='').length;
+  const short = sumSrc.filter(i=>{const c=counts[i.name];return c!==undefined&&c!==''&&parseFloat(c)<i.par;});
   const cost  = short.reduce((s,item)=>{const oc=orderCases(item);return s+(oc&&item.price>0?oc*item.price:0);},0);
   document.getElementById('s-counted').textContent = done;
   document.getElementById('s-short').textContent   = short.length;
