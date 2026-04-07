@@ -744,11 +744,6 @@ function initApp() {
   // up-to-date PAR, units_case, and unit values
   loadCatalogForCount();
 }
-  document.getElementById('cnt-total').textContent = INVENTORY.length;
-  renderCount();
-  updateBadge('local');
-  loadRecentUsage();
-}
 
 // ── Load live catalog for Count tab ───────────────────────────────────────────
 // Fetches active catalog items from Supabase so PAR/units_case/unit are always
@@ -871,18 +866,20 @@ function populateCountCatFilter() {
 
 function renderCount() {
   populateCountCatFilter();
-  const q         = (document.getElementById('search').value || '').toLowerCase();
-  const catFilt   = document.getElementById('cnt-cat-filter').value;
-  const sortBy    = document.getElementById('cnt-sort').value;
-  const uncounted = document.getElementById('cnt-uncounted').checked;
-  const lowOnly   = document.getElementById('cnt-low').checked;
+  const q         = (document.getElementById('search')?.value || '').toLowerCase();
+  const catFilt   = document.getElementById('cnt-cat-filter')?.value || '';
+  const sortBy    = document.getElementById('cnt-sort')?.value || 'catalog';
+  const uncounted = document.getElementById('cnt-uncounted')?.checked || false;
+  const lowOnly   = document.getElementById('cnt-low')?.checked || false;
   const el        = document.getElementById('count-list');
+  if (!el) return;
 
   // Use live catalog if loaded, otherwise fall back to embedded INVENTORY
   const source = window._activeInventory || INVENTORY;
 
   // Filter from live catalog source
   let items = source.filter(item => {
+    if (catFilt && item.category !== catFilt) return false;
     if (q && !item.name.toLowerCase().includes(q) &&
              !item.category.toLowerCase().includes(q)) return false;
     if (uncounted && counts[item.name] !== undefined && counts[item.name] !== '') return false;
@@ -925,17 +922,18 @@ function renderCount() {
     cats[item.category].push(item);
   }
   let html = '';
-  for (const [cat, items] of Object.entries(cats)) {
-    const done = items.filter(i => counts[i.name] !== undefined && counts[i.name] !== '').length;
-    const low  = items.filter(i => {
+  for (const cat of catOrder) {
+    const catItems = cats[cat];
+    const done = catItems.filter(i => counts[i.name] !== undefined && counts[i.name] !== '').length;
+    const low  = catItems.filter(i => {
       const c = counts[i.name];
       return c !== undefined && c !== '' && parseFloat(c) < i.par;
     }).length;
     html += `<div class="cat-header">
       <span>${cat}</span>
-      <span style="font-weight:500;opacity:.8">${done}/${items.length}${low ? ' · <span style="color:#c0392b">' + low + ' low</span>' : ''}</span>
+      <span style="font-weight:500;opacity:.8">${done}/${catItems.length}${low ? ' · <span style="color:#c0392b">' + low + ' low</span>' : ''}</span>
     </div><div class="item-list">`;
-    for (const item of items) {
+    for (const item of catItems) {
       const cnt  = counts[item.name];
       const has  = cnt !== undefined && cnt !== '';
       const oc   = has ? orderCases(item) : null;
