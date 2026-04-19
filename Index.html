@@ -1741,8 +1741,21 @@ async function saveItem() {
     sortOrder = match ? (match.sort_order||0) : 0;
   }
 
+  // For new items, assign item_order as max existing + 1 within the category
+  let itemOrder = 0;
+  if (!editingId) {
+    const catItems = catalogData.filter(i => i.category === cat);
+    itemOrder = catItems.length
+      ? Math.max(...catItems.map(i => i.item_order || 0)) + 1
+      : 1;
+  } else {
+    // Keep existing item_order when editing
+    const existing = catalogData.find(i => i.id === editingId);
+    itemOrder = existing ? (existing.item_order || 0) : 0;
+  }
+
   const payload = {
-    name, category:cat, sort_order:sortOrder, vendor,
+    name, category:cat, sort_order:sortOrder, item_order:itemOrder, vendor,
     unit:  document.getElementById('m-unit').value.trim(),
     pack:  document.getElementById('m-pack').value.trim(),
     par:   parseFloat(document.getElementById('m-par').value)||0,
