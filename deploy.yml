@@ -1,0 +1,38 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure index.html is lowercase
+        run: |
+          if [ -f "Index.html" ] && [ ! -f "index.html" ]; then
+            mv Index.html index.html
+          fi
+
+      - name: Generate config.js from secrets
+        run: |
+          echo "window.SUPABASE_URL=\"${{ secrets.SUPABASE_URL }}\";" > config.js
+          echo "window.SUPABASE_KEY=\"${{ secrets.SUPABASE_KEY }}\";" >> config.js
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          exclude_assets: '.gitignore,.github,README.md,Index.html'
