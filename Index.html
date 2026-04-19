@@ -281,9 +281,11 @@
   @media print {
     #print-catalog { display: block !important; }
     .no-print { display: none !important; }
-    header, .tabs, .save-bar, #panel-count, #panel-po,
+    header, .tabs, .save-bar, #panel-count,
     #panel-summary, #panel-history, #panel-catalog,
     #login-screen, #modal-overlay, #toast { display: none !important; }
+    #panel-po { display: block !important; padding: 0; }
+    .filter-sort-bar, #po-vendor-filter, #po-filter-count { display: none !important; }
     body { background: #fff; }
     .print-cat-header { background: #1a3a5c !important; color: #fff !important;
       -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -300,6 +302,29 @@
   .print-table td { padding: 5px 8px; border-bottom: 1px solid #d0d8e0; }
   .print-table tr:last-child td { border-bottom: none; }
   .print-table tr:nth-child(even) td { background: #f7fafc; }
+
+
+  /* ── Filter / sort bars ── */
+  .filter-sort-bar { background:#fff; border-radius:var(--radius);
+    padding:8px 12px; margin-bottom:10px; box-shadow:var(--shadow);
+    display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .filter-sort-bar select, .filter-sort-bar input[type=text] {
+    border:1.5px solid var(--border); border-radius:6px;
+    padding:5px 9px; font-size:.82rem; background:#fff; color:var(--text); }
+  .filter-sort-bar select:focus, .filter-sort-bar input:focus {
+    outline:none; border-color:var(--blue); }
+  .filter-sort-bar label { font-size:.75rem; font-weight:700;
+    color:var(--muted); white-space:nowrap; }
+  .filter-chip { display:inline-flex; align-items:center; gap:4px;
+    background:var(--blue-lt); border:1.5px solid #b0cce8; border-radius:12px;
+    padding:2px 10px; font-size:.75rem; font-weight:600; color:var(--navy); }
+  .filter-chip button { background:none; border:none; cursor:pointer;
+    color:var(--muted); font-size:.9rem; padding:0; line-height:1; }
+  .sort-btn { background:none; border:1.5px solid var(--border); border-radius:5px;
+    padding:4px 10px; font-size:.75rem; font-weight:700; color:var(--muted);
+    cursor:pointer; white-space:nowrap; }
+  .sort-btn.active { background:var(--navy); color:#fff; border-color:var(--navy); }
+  .filter-count { font-size:.75rem; color:var(--muted); margin-left:auto; white-space:nowrap; }
 
   /* ── Reorder arrows ── */
   .reorder-btns { display: flex; flex-direction: column; gap: 1px; }
@@ -370,7 +395,7 @@
 </header>
 
 <div class="tabs" id="tab-bar">
-  <button class="active" onclick="showTab('count')">📋 Count</button>
+  <button class="active" onclick="showTab('count')">📋 Update Inventory</button>
   <button onclick="showTab('po')">🛒 Orders</button>
   <button onclick="showTab('summary')">📊 Summary</button>
   <button onclick="showTab('history')" class="mgr-tab">📅 History</button>
@@ -394,6 +419,28 @@
     <span><kbd>Shift+Enter</kbd> / <kbd>Shift+Tab</kbd> — previous</span>
     <span><kbd>↑</kbd> <kbd>↓</kbd> — move up/down</span>
   </div>
+  <div class="filter-sort-bar">
+    <label>Category:</label>
+    <select id="cnt-cat-filter" onchange="renderCount()">
+      <option value="">All categories</option>
+    </select>
+    <label>Sort:</label>
+    <select id="cnt-sort" onchange="renderCount()">
+      <option value="catalog">Catalog order</option>
+      <option value="name">Name A–Z</option>
+      <option value="shortage">Shortage ↓</option>
+      <option value="count">Count ↓</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+      <input type="checkbox" id="cnt-uncounted" onchange="renderCount()">
+      Uncounted only
+    </label>
+    <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+      <input type="checkbox" id="cnt-low" onchange="renderCount()">
+      Low / shortage only
+    </label>
+    <span class="filter-count" id="cnt-filter-count"></span>
+  </div>
   <div class="search-wrap">
     <input type="text" id="search" placeholder="Search items…" oninput="renderCount()">
   </div>
@@ -402,9 +449,15 @@
 
 <!-- ══ ORDERS ══ -->
 <div class="panel" id="panel-po">
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
     <button class="btn btn-success" onclick="downloadCSV()">⬇ Download CSV</button>
     <button class="btn btn-primary" onclick="window.print()">🖨 Print</button>
+    <select id="po-vendor-filter" onchange="renderPO()"
+      style="border:1.5px solid var(--border);border-radius:var(--radius);
+             padding:7px 10px;font-size:.85rem;background:#fff;flex:1;max-width:220px">
+      <option value="">All vendors</option>
+    </select>
+    <span id="po-filter-count" style="font-size:.78rem;color:var(--muted);white-space:nowrap"></span>
   </div>
   <div id="po-list"></div>
 </div>
@@ -424,9 +477,33 @@
   <div class="filter-bar">
     <label>From:</label><input type="date" id="hist-from">
     <label>To:</label><input type="date" id="hist-to">
-    <label>Item:</label><input type="text" id="hist-item" placeholder="All items" style="width:150px">
+    <label>Item:</label><input type="text" id="hist-item" placeholder="All items" style="width:140px">
     <button class="btn btn-primary btn-sm" onclick="loadHistory()">Load</button>
     <button class="btn btn-sm" style="background:#555;color:#fff" onclick="downloadHistory()">⬇ Export CSV</button>
+  </div>
+  <div class="filter-sort-bar" id="hist-filter-bar" style="display:none">
+    <label>Category:</label>
+    <select id="hist-cat-filter" onchange="applyHistoryFilters()">
+      <option value="">All categories</option>
+    </select>
+    <label>Vendor:</label>
+    <select id="hist-vendor-filter" onchange="applyHistoryFilters()">
+      <option value="">All vendors</option>
+    </select>
+    <label>Sort by:</label>
+    <select id="hist-sort" onchange="applyHistoryFilters()">
+      <option value="catalog">Catalog order</option>
+      <option value="week_asc">Week ↑</option>
+      <option value="week_desc">Week ↓</option>
+      <option value="name">Name A–Z</option>
+      <option value="shortage">Shortage ↓</option>
+      <option value="order">Order Cases ↓</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+      <input type="checkbox" id="hist-shortage-only" onchange="applyHistoryFilters()">
+      Shortage only
+    </label>
+    <span class="filter-count" id="hist-filter-count"></span>
   </div>
   <div id="history-body">
     <div style="padding:32px;text-align:center;color:var(--muted)">Set a date range and click Load.</div>
@@ -447,6 +524,22 @@
              padding:7px 10px;font-size:.85rem;background:#fff"
       onchange="renderCatalog()">
       <option value="">All vendors</option>
+    </select>
+    <select id="cat-cat-filter"
+      style="border:1.5px solid var(--border);border-radius:var(--radius);
+             padding:7px 10px;font-size:.85rem;background:#fff"
+      onchange="renderCatalog()">
+      <option value="">All categories</option>
+    </select>
+    <select id="cat-sort"
+      style="border:1.5px solid var(--border);border-radius:var(--radius);
+             padding:7px 10px;font-size:.85rem;background:#fff"
+      onchange="renderCatalog()">
+      <option value="catalog">Catalog order</option>
+      <option value="name">Name A–Z</option>
+      <option value="par_desc">PAR ↓</option>
+      <option value="price_desc">Price ↓</option>
+      <option value="vendor">Vendor A–Z</option>
     </select>
     <label style="display:flex;align-items:center;gap:5px;font-size:.82rem;
       font-weight:600;color:var(--navy);white-space:nowrap;cursor:pointer">
@@ -475,7 +568,7 @@
         <div class="full-col">
           <label class="modal-lbl">Category *</label>
           <div style="display:flex;gap:6px">
-            <select id="m-cat" class="modal-inp" style="flex:1">
+            <select id="m-cat" class="modal-inp" style="flex:1" onchange="onModalCatChange()">
               <option value="">— select —</option>
             </select>
             <input id="m-cat-new" class="modal-inp" type="text"
@@ -514,6 +607,11 @@
           <label for="m-active" style="font-size:.88rem;font-weight:600;cursor:pointer">
             Active — appears in weekly count</label>
         </div>
+        <div class="full-col">
+          <label class="modal-lbl">SKU <span style="font-weight:400;text-transform:none;font-size:.72rem;color:var(--muted)">(auto-generated for new items — edit if needed)</span></label>
+          <input id="m-sku" class="modal-inp" type="text" placeholder="e.g. COLD-015"
+            style="font-family:monospace;font-weight:700;letter-spacing:.05em">
+        </div>
       </div>
       <div id="modal-err" class="modal-err"></div>
       <div class="modal-footer">
@@ -532,7 +630,7 @@
   <button class="btn btn-warning" onclick="showTab('po')">🛒 View Orders</button>
 </div>
 
-<script src="/config.js"></script>
+<script src="config.js"></script>
 
 <script>
 // ── Configuration — edit these before publishing ───────────────────────────
@@ -551,9 +649,6 @@ const PINS = {
 const MANAGER_TABS = new Set(['history', 'catalog']);
 // ──────────────────────────────────────────────────────────────────────────
 
-const INVENTORY = [{"name": "Cups Clear 1oz", "category": "COLD CUPS AND LIDS", "cat_order": 1, "item_order": 1, "vendor": "Webstaurant", "unit": "Sleeve", "pack": "1/25/100", "par": 2.0, "units_case": 25, "price": 14.99}, {"name": "Cups Clear 2oz", "category": "COLD CUPS AND LIDS", "cat_order": 1, "item_order": 2, "vendor": "Webstaurant", "unit": "Sleeve", "pack": "1/25/100", "par": 2.0, "units_case": 25, "price": 20.99}, {"name": "Soup container - 8 oz", "category": "COLD CUPS AND LIDS", "cat_order": 1, "item_order": 3, "vendor": "Restaurant Depot", "unit": "Sleeve", "pack": "", "par": 0.1, "units_case": 24, "price": 26.49}, {"name": "Cup Clear 8 oz", "category": "COLD CUPS AND LIDS", "cat_order": 1, "item_order": 4, "vendor": "Your Brand Caf\u00e9", "unit": "Sleeve", "pack": "", "par": 1.0, "units_case": 50, "price": 171.51}, {"name": "Cup Clear 16/18oz", "category": "COLD CUPS AND LIDS", "cat_order": 1, "item_order": 5, "vendor": "Your Brand Caf\u00e9", "unit": "Sleeve", "pack": "", "par": 20.0, "units_case": 20, "price": 195.14}, {"name": "Cup Clear 24oz", "category": "COLD CUPS AND LIDS", "cat_order": 1, "item_order": 6, "vendor": "Your Brand Caf\u00e9", "unit": "Sleeve", "pack": "", "par": 36.0, "units_case": 12, "price": 139.13}, {"name": "Cup Clear 32oz", "category": "COLD CUPS AND LIDS", "cat_order": 1, "item_order": 7, "vendor": "Your Brand Caf\u00e9", "unit": "Sleeve", "pack": "", "par": 36.0, "units_case": 40, "price": 125.12}, {"name": "Lid plastic 1oz", "category": "COLD CUPS AND LIDS", "cat_order": 1, "item_order": 8, "vendor": "Webstaurant", "unit": "Sleeve", "pack": "1/25/100", "par": 2.0, "units_case": 25, "price": 11.99}, {"name": "Lid plastic 2oz", "category": "COLD CUPS AND LIDS", "cat_order": 1, "item_order": 9, "vendor": "Webstaurant", "unit": "Sleeve", "pack": "1/25/100", "par": 2.0, "units_case": 25, "price": 18.99}, {"name": "Lid Cold Slot 8", "category": "COLD CUPS AND LIDS", "cat_order": 1, "item_order": 10, "vendor": "Your Brand Caf\u00e9", "unit": "Sleeve", "pack": "", "par": 1.0, "units_case": 20, "price": 25.77}, {"name": "Lid Cold Slot 12/24", "category": "COLD CUPS AND LIDS", "cat_order": 1, "item_order": 11, "vendor": "Webstaurant", "unit": "Sleeve", "pack": "1/10/100", "par": 20.0, "units_case": 10, "price": 35.49}, {"name": "Lid Cold Slot 32oz", "category": "COLD CUPS AND LIDS", "cat_order": 1, "item_order": 12, "vendor": "Webstaurant", "unit": "Sleeve", "pack": "", "par": 10.0, "units_case": 10, "price": 50.49}, {"name": "Lid Cold Dome 16/24oz", "category": "COLD CUPS AND LIDS", "cat_order": 1, "item_order": 13, "vendor": "Webstaurant", "unit": "Sleeve", "pack": "", "par": 2.0, "units_case": 20, "price": 69.99}, {"name": "Lid Cold Dome 32oz", "category": "COLD CUPS AND LIDS", "cat_order": 1, "item_order": 14, "vendor": "Webstaurant", "unit": "Sleeve", "pack": "", "par": 2.0, "units_case": 20, "price": 91.49}, {"name": "Cup Hot 04oz", "category": "HOT CUPS AND LIDS", "cat_order": 2, "item_order": 15, "vendor": "Webstaurant", "unit": "Sleeve", "pack": "", "par": 2.0, "units_case": 20, "price": 29.49}, {"name": "Cup Hot 10oz", "category": "HOT CUPS AND LIDS", "cat_order": 2, "item_order": 16, "vendor": "Webstaurant", "unit": "Sleeve", "pack": "", "par": 2.0, "units_case": 20, "price": 69.99}, {"name": "Cup Hot 12oz", "category": "HOT CUPS AND LIDS", "cat_order": 2, "item_order": 17, "vendor": "Webstaurant", "unit": "Sleeve", "pack": "", "par": 15.0, "units_case": 20, "price": 72.99}, {"name": "Cup Hot 16oz", "category": "HOT CUPS AND LIDS", "cat_order": 2, "item_order": 18, "vendor": "Webstaurant", "unit": "Sleeve", "pack": "", "par": 25.0, "units_case": 20, "price": 82.49}, {"name": "Cup Hot 20oz", "category": "HOT CUPS AND LIDS", "cat_order": 2, "item_order": 19, "vendor": "Webstaurant", "unit": "Sleeve", "pack": "", "par": 25.0, "units_case": 20, "price": 62.99}, {"name": "Lid Hot 4oz", "category": "HOT CUPS AND LIDS", "cat_order": 2, "item_order": 20, "vendor": "Webstaurant", "unit": "Sleeve", "pack": "", "par": 2.0, "units_case": 20, "price": 33.99}, {"name": "Lid Hot 10oz", "category": "HOT CUPS AND LIDS", "cat_order": 2, "item_order": 21, "vendor": "Webstaurant", "unit": "Sleeve", "pack": "1/10/100", "par": 2.0, "units_case": 10, "price": 60.99}, {"name": "Lid Hot 12-20oz", "category": "HOT CUPS AND LIDS", "cat_order": 2, "item_order": 22, "vendor": "Webstaurant", "unit": "Sleeve", "pack": "", "par": 30.0, "units_case": 20, "price": 43.99}, {"name": "Lid Sippy Hot", "category": "HOT CUPS AND LIDS", "cat_order": 2, "item_order": 23, "vendor": "Webstaurant", "unit": "Sleeve", "pack": "", "par": 5.0, "units_case": 20, "price": 0}, {"name": "Paper Sleeve", "category": "COFFEE SLEEVES", "cat_order": 3, "item_order": 24, "vendor": "Webstaurant", "unit": "Box", "pack": "1200ct", "par": 3.0, "units_case": 1, "price": 39.99}, {"name": "Brew Barrel 96oz", "category": "COFFEE SLEEVES", "cat_order": 3, "item_order": 25, "vendor": "Webstaurant", "unit": "Each", "pack": "", "par": 5.0, "units_case": 25, "price": 84.99}, {"name": "Carrier 4 cup Cruiser - Pulp", "category": "COFFEE SLEEVES", "cat_order": 3, "item_order": 26, "vendor": "Webstaurant", "unit": "Box", "pack": "", "par": 0.5, "units_case": 4, "price": 36.99}, {"name": "Equal 2000 Packets", "category": "SWEETENERS", "cat_order": 4, "item_order": 27, "vendor": "Restaurant Depot", "unit": "Box", "pack": "1/1000", "par": 0.2, "units_case": 1, "price": 8.39}, {"name": "Sugar in the Raw", "category": "SWEETENERS", "cat_order": 4, "item_order": 28, "vendor": "Restaurant Depot", "unit": "Box", "pack": "1/1200", "par": 1.0, "units_case": 1, "price": 26.28}, {"name": "Splenda", "category": "SWEETENERS", "cat_order": 4, "item_order": 29, "vendor": "Restaurant Depot", "unit": "Box", "pack": "", "par": 1.0, "units_case": 1, "price": 32.91}, {"name": "Sugar C&H", "category": "SWEETENERS", "cat_order": 4, "item_order": 30, "vendor": "Restaurant Depot", "unit": "Box", "pack": "", "par": 1.0, "units_case": 1, "price": 14.74}, {"name": "Sweet N Low", "category": "SWEETENERS", "cat_order": 4, "item_order": 31, "vendor": "Restaurant Depot", "unit": "Box", "pack": "1/1000", "par": 0.2, "units_case": 1, "price": 9.02}, {"name": "Ghirardelli Sweet Ground Chocolate & Cocoa Powder", "category": "BEVERAGE POWDERS AND MIXES", "cat_order": 5, "item_order": 32, "vendor": "Johnson Bros", "unit": "Box", "pack": "1/30lbs", "par": 3.0, "units_case": 1, "price": 121.46}, {"name": "Ghirardelli  Sweet Ground Dark Chocolate & Cocoa Powder", "category": "BEVERAGE POWDERS AND MIXES", "cat_order": 5, "item_order": 33, "vendor": "Johnson Bros", "unit": "Box", "pack": "1/25lbs", "par": 2.0, "units_case": 1, "price": 0}, {"name": "Ghirardelli Sweet Ground White Chocolate Flavored Powder", "category": "BEVERAGE POWDERS AND MIXES", "cat_order": 5, "item_order": 34, "vendor": "Johnson Bros", "unit": "Box", "pack": "1/25lbs", "par": 4.0, "units_case": 1, "price": 133.39}, {"name": "Ghirardelli Vanilla Powder (3#)", "category": "BEVERAGE POWDERS AND MIXES", "cat_order": 5, "item_order": 35, "vendor": "Webstaurant", "unit": "Box", "pack": "1/3lb", "par": 1.0, "units_case": 1, "price": 26.99}, {"name": "Matcha Green Tea Latte", "category": "BEVERAGE POWDERS AND MIXES", "cat_order": 5, "item_order": 36, "vendor": "Barista Underground", "unit": "Box", "pack": "1/5/3lbs", "par": 5.0, "units_case": 1, "price": 109.99}, {"name": "Latte Powder   (Big Train)", "category": "BEVERAGE POWDERS AND MIXES", "cat_order": 5, "item_order": 37, "vendor": "Webstaurant", "unit": "Box", "pack": "1/3.5lbs", "par": 5.0, "units_case": 1, "price": 22.49}, {"name": "Feature Powder", "category": "BEVERAGE POWDERS AND MIXES", "cat_order": 5, "item_order": 38, "vendor": "Barista Underground", "unit": "Box", "pack": "1/5/3lbs", "par": 5.0, "units_case": 5, "price": 109.99}, {"name": "Island Oasis MANGO", "category": "BEVERAGE POWDERS AND MIXES", "cat_order": 5, "item_order": 39, "vendor": "Performance", "unit": "Each", "pack": "", "par": 3.0, "units_case": 12, "price": 110.13}, {"name": "Island Oasis  STRAWBERRY", "category": "BEVERAGE POWDERS AND MIXES", "cat_order": 5, "item_order": 40, "vendor": "Performance", "unit": "Each", "pack": "", "par": 3.0, "units_case": 12, "price": 110.13}, {"name": "Cinnamon Powder", "category": "TOPPINGS", "cat_order": 6, "item_order": 41, "vendor": "Restaurant Depot", "unit": "Box", "pack": "1/5/3lbs", "par": 1.0, "units_case": 1, "price": 0}, {"name": "Choc Shavings", "category": "TOPPINGS", "cat_order": 6, "item_order": 42, "vendor": "Webstaurant", "unit": "Box", "pack": "1/45lb", "par": 0.5, "units_case": 1, "price": 208.99}, {"name": "Choc Covered Espresso Beans", "category": "TOPPINGS", "cat_order": 6, "item_order": 43, "vendor": "Webstaurant", "unit": "Box", "pack": "1/10lb", "par": 0.3, "units_case": 1, "price": 67.49}, {"name": "Coconut Crunch # 42203", "category": "TOPPINGS", "cat_order": 6, "item_order": 44, "vendor": "Webstaurant", "unit": "Box", "pack": "1/10lb", "par": 0.1, "units_case": 1, "price": 55.49}, {"name": "Ground Korinti Cinnamon", "category": "TOPPINGS", "cat_order": 6, "item_order": 45, "vendor": "Restaurant Depot", "unit": "Each", "pack": "1/1 lb", "par": 0.1, "units_case": 1, "price": 10.86}, {"name": "Honey", "category": "TOPPINGS", "cat_order": 6, "item_order": 46, "vendor": "Restaurant Depot", "unit": "Each", "pack": "1/5lb", "par": 0.5, "units_case": 1, "price": 7.57}, {"name": "Nutella", "category": "TOPPINGS", "cat_order": 6, "item_order": 47, "vendor": "Restaurant Depot", "unit": "Each", "pack": "1/6.6 lb", "par": 2.0, "units_case": 1, "price": 24.65}, {"name": "Oatmeal", "category": "TOPPINGS", "cat_order": 6, "item_order": 48, "vendor": "Costco", "unit": "Each", "pack": "1/52ct", "par": 3.0, "units_case": 1, "price": 10.99}, {"name": "PAM  - Spray Oil", "category": "TOPPINGS", "cat_order": 6, "item_order": 49, "vendor": "Costco", "unit": "Each", "pack": "1/2ct", "par": 2.0, "units_case": 1, "price": 5.99}, {"name": "Peanut Butter", "category": "TOPPINGS", "cat_order": 6, "item_order": 50, "vendor": "Restaurant Depot", "unit": "Each", "pack": "1/5 lb", "par": 4.0, "units_case": 1, "price": 8.16}, {"name": "Strawberry Jam Heinz", "category": "TOPPINGS", "cat_order": 6, "item_order": 51, "vendor": "Costco", "unit": "Box", "pack": "1/42oz", "par": 0.2, "units_case": 1, "price": 8.99}, {"name": "Gummy Bears", "category": "TOPPINGS", "cat_order": 6, "item_order": 52, "vendor": "Webstaurant", "unit": "Box", "pack": "1/4/5lb", "par": 0.1, "units_case": 1, "price": 45.99}, {"name": "Sprinkles", "category": "TOPPINGS", "cat_order": 6, "item_order": 53, "vendor": "Webstaurant", "unit": "Box", "pack": "1/5lb", "par": 0.1, "units_case": 1, "price": 12.49}, {"name": "Choc Chips", "category": "TOPPINGS", "cat_order": 6, "item_order": 54, "vendor": "Costco", "unit": "Box", "pack": "1/72oz", "par": 1.0, "units_case": 1, "price": 16.99}, {"name": "Numi - Breakfast Blend", "category": "TEA", "cat_order": 7, "item_order": 55, "vendor": "Webstaurant", "unit": "Each", "pack": "1/18ct", "par": 10.0, "units_case": 1, "price": 10.49}, {"name": "Numi - Chamomile Lemon", "category": "TEA", "cat_order": 7, "item_order": 56, "vendor": "Webstaurant", "unit": "Each", "pack": "1/18ct", "par": 10.0, "units_case": 1, "price": 10.49}, {"name": "Numi - Earl Grey", "category": "TEA", "cat_order": 7, "item_order": 57, "vendor": "Webstaurant", "unit": "Each", "pack": "1/100ct", "par": 100.0, "units_case": 1, "price": 27.49}, {"name": "Numi - Chai", "category": "TEA", "cat_order": 7, "item_order": 58, "vendor": "Webstaurant", "unit": "Each", "pack": "1/18ct", "par": 5.0, "units_case": 1, "price": 10.49}, {"name": "Numi - Ginger Lemon", "category": "TEA", "cat_order": 7, "item_order": 59, "vendor": "Webstaurant", "unit": "Each", "pack": "1/16ct", "par": 10.0, "units_case": 1, "price": 10.49}, {"name": "Numi - Gunpowder  Green", "category": "TEA", "cat_order": 7, "item_order": 60, "vendor": "Webstaurant", "unit": "Each", "pack": "1/18ct", "par": 10.0, "units_case": 1, "price": 10.49}, {"name": "Numi -  Jasmine Green", "category": "TEA", "cat_order": 7, "item_order": 61, "vendor": "Webstaurant", "unit": "Each", "pack": "1/18ct", "par": 10.0, "units_case": 1, "price": 10.49}, {"name": "Numi - Moroccan Mint", "category": "TEA", "cat_order": 7, "item_order": 62, "vendor": "Webstaurant", "unit": "Each", "pack": "1/18ct", "par": 10.0, "units_case": 1, "price": 10.49}, {"name": "Iced High Organic Blk", "category": "TEA", "cat_order": 7, "item_order": 63, "vendor": "Webstaurant", "unit": "Each", "pack": "1/24ct", "par": 12.0, "units_case": 1, "price": 31.49}, {"name": "Ice Citrus Green", "category": "TEA", "cat_order": 7, "item_order": 64, "vendor": "Webstaurant", "unit": "Each", "pack": "1/24ct", "par": 12.0, "units_case": 1, "price": 29.49}, {"name": "Berried Treasured Tropical Iced Tea", "category": "TEA", "cat_order": 7, "item_order": 65, "vendor": "Webstaurant", "unit": "Each", "pack": "1/24ct", "par": 4.0, "units_case": 1, "price": 46.49}, {"name": "Country Time Lemonade", "category": "TEA", "cat_order": 7, "item_order": 66, "vendor": "Costco", "unit": "Each", "pack": "1/82.5oz", "par": 0.5, "units_case": 1, "price": 0}, {"name": "Banana - Natural*", "category": "SYRUP", "cat_order": 8, "item_order": 67, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/25.4oz", "par": 6.0, "units_case": 1, "price": 9.29}, {"name": "Cane Syrup", "category": "SYRUP", "cat_order": 8, "item_order": 68, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/33.8oz", "par": 2.0, "units_case": 1, "price": 4.99}, {"name": "Caramel", "category": "SYRUP", "cat_order": 8, "item_order": 69, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/25.4oz", "par": 12.0, "units_case": 1, "price": 8.19}, {"name": "Caramel Sugar Free", "category": "SYRUP", "cat_order": 8, "item_order": 70, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/25.4oz", "par": 2.0, "units_case": 1, "price": 8.19}, {"name": "Cinnamon", "category": "SYRUP", "cat_order": 8, "item_order": 71, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/25.4oz", "par": 1.0, "units_case": 1, "price": 9.29}, {"name": "Chai Spiced", "category": "SYRUP", "cat_order": 8, "item_order": 72, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/25.4oz", "par": 18.0, "units_case": 1, "price": 11.49}, {"name": "Chai Spiced - Sugar Free", "category": "SYRUP", "cat_order": 8, "item_order": 73, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/25.4oz", "par": 2.0, "units_case": 1, "price": 10.99}, {"name": "Coconut", "category": "SYRUP", "cat_order": 8, "item_order": 74, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/25.4oz", "par": 4.0, "units_case": 1, "price": 9.99}, {"name": "Cr\u00e8me de Menthe - Natural*", "category": "SYRUP", "cat_order": 8, "item_order": 75, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/25.4oz", "par": 4.0, "units_case": 1, "price": 9.19}, {"name": "Hazelnut", "category": "SYRUP", "cat_order": 8, "item_order": 76, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/25.4oz", "par": 8.0, "units_case": 1, "price": 8.19}, {"name": "Hazelnut Sugar Free", "category": "SYRUP", "cat_order": 8, "item_order": 77, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/25.4oz", "par": 4.0, "units_case": 1, "price": 8.99}, {"name": "Kumquat", "category": "SYRUP", "cat_order": 8, "item_order": 78, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/64oz", "par": 1.0, "units_case": 1, "price": 14.99}, {"name": "Lavender", "category": "SYRUP", "cat_order": 8, "item_order": 79, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/25.4oz", "par": 4.0, "units_case": 1, "price": 8.19}, {"name": "Passionfruit", "category": "SYRUP", "cat_order": 8, "item_order": 80, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/64oz", "par": 1.0, "units_case": 1, "price": 14.49}, {"name": "Peppermint", "category": "SYRUP", "cat_order": 8, "item_order": 81, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/25.4oz", "par": 0, "units_case": 1, "price": 9.19}, {"name": "Raspberry Classic", "category": "SYRUP", "cat_order": 8, "item_order": 82, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/25.4oz", "par": 1.0, "units_case": 1, "price": 9.99}, {"name": "Strawberry", "category": "SYRUP", "cat_order": 8, "item_order": 83, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/25.4oz", "par": 1.0, "units_case": 1, "price": 8.99}, {"name": "Vanilla Natural", "category": "SYRUP", "cat_order": 8, "item_order": 84, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/25.4oz", "par": 24.0, "units_case": 1, "price": 8.99}, {"name": "Vanilla Sugar Free", "category": "SYRUP", "cat_order": 8, "item_order": 85, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/25.4oz", "par": 4.0, "units_case": 1, "price": 8.19}, {"name": "Watermelon", "category": "SYRUP", "cat_order": 8, "item_order": 86, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/25.4oz", "par": 1.0, "units_case": 1, "price": 8.99}, {"name": "Peach", "category": "SYRUP", "cat_order": 8, "item_order": 87, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/25.4oz", "par": 1.0, "units_case": 1, "price": 0}, {"name": "Sauce - Caramel Sauce", "category": "SYRUP", "cat_order": 8, "item_order": 88, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/12/12oz", "par": 1.0, "units_case": 1, "price": 58.99}, {"name": "Sauce - Choc Ghiridelli   Sauce", "category": "SYRUP", "cat_order": 8, "item_order": 89, "vendor": "Webstaurant", "unit": "Bottle", "pack": "1/64oz", "par": 1.0, "units_case": 1, "price": 19.99}, {"name": "Pumpkin Pie Sauce", "category": "SYRUP", "cat_order": 8, "item_order": 90, "vendor": "Webstaurant", "unit": "Box", "pack": "1/64oz", "par": 0, "units_case": 1, "price": 21.99}, {"name": "Almond Milk", "category": "MILK ALTERNATES", "cat_order": 9, "item_order": 91, "vendor": "Costco", "unit": "Each", "pack": "", "par": 24.0, "units_case": 12, "price": 12.89}, {"name": "Coconut Milk", "category": "MILK ALTERNATES", "cat_order": 9, "item_order": 92, "vendor": "Performance", "unit": "Each", "pack": "", "par": 12.0, "units_case": 12, "price": 36.15}, {"name": "PACIFIC BLENDERS SOY MILK PLAIN", "category": "MILK ALTERNATES", "cat_order": 9, "item_order": 93, "vendor": "Performance", "unit": "Each", "pack": "", "par": 24.0, "units_case": 12, "price": 38.22}, {"name": "Oat Milk", "category": "MILK ALTERNATES", "cat_order": 9, "item_order": 94, "vendor": "Costco", "unit": "Each", "pack": "", "par": 96.0, "units_case": 12, "price": 10.49}, {"name": "Butter", "category": "EGGS AND DAIRY", "cat_order": 10, "item_order": 95, "vendor": "Costco", "unit": "Each", "pack": "1/4/4ct", "par": 1.0, "units_case": 4, "price": 0}, {"name": "Cream Cheese", "category": "EGGS AND DAIRY", "cat_order": 10, "item_order": 96, "vendor": "Restaurant Depot", "unit": "Each", "pack": "1/10/3 lb", "par": 20.0, "units_case": 10, "price": 77.66}, {"name": "Egg Whites", "category": "EGGS AND DAIRY", "cat_order": 10, "item_order": 97, "vendor": "Costco", "unit": "Each", "pack": "1/6/16oz", "par": 96.0, "units_case": 6, "price": 10.69}, {"name": "Cheese - Cheddar - Sliced", "category": "EGGS AND DAIRY", "cat_order": 10, "item_order": 98, "vendor": "Performance", "unit": "Each", "pack": "1/6/2ct", "par": 48.0, "units_case": 12, "price": 34.34}, {"name": "Cheese - Swiss Cheese", "category": "EGGS AND DAIRY", "cat_order": 10, "item_order": 99, "vendor": "Performance", "unit": "Each", "pack": "1/6/2ct", "par": 8.0, "units_case": 12, "price": 50.71}, {"name": "Cheese - PepperJack Cheese", "category": "EGGS AND DAIRY", "cat_order": 10, "item_order": 100, "vendor": "Performance", "unit": "Each", "pack": "1/6/2ct", "par": 4.0, "units_case": 12, "price": 36.76}, {"name": "Coffee Creamers", "category": "EGGS AND DAIRY", "cat_order": 10, "item_order": 101, "vendor": "Restaurant Depot", "unit": "Box", "pack": "1/180 ct", "par": 2.0, "units_case": 1, "price": 11.54}, {"name": "Can Liner Black (45gal)", "category": "MISC. SUPPLIES", "cat_order": 11, "item_order": 102, "vendor": "Webstaurant", "unit": "Box", "pack": "1/100ct", "par": 1.2, "units_case": 1, "price": 24.99}, {"name": "Film Roll", "category": "MISC. SUPPLIES", "cat_order": 11, "item_order": 103, "vendor": "Costco", "unit": "Box", "pack": "", "par": 0.3, "units_case": 1, "price": 15.99}, {"name": "Gloves Large 8940", "category": "MISC. SUPPLIES", "cat_order": 11, "item_order": 104, "vendor": "Webstaurant", "unit": "Box", "pack": "1/20/500ct", "par": 2.0, "units_case": 20, "price": 52.49}, {"name": "PACTIV FOAM H", "category": "MISC. SUPPLIES", "cat_order": 11, "item_order": 105, "vendor": "Webstaurant", "unit": "Box", "pack": "", "par": 6.0, "units_case": 1, "price": 0}, {"name": "Paper Bags Brown #12 big", "category": "MISC. SUPPLIES", "cat_order": 11, "item_order": 106, "vendor": "Restaurant Depot", "unit": "Box", "pack": "1/500", "par": 0.2, "units_case": 500, "price": 25.29}, {"name": "Plastic Cutlery - Fork", "category": "MISC. SUPPLIES", "cat_order": 11, "item_order": 107, "vendor": "Webstaurant", "unit": "Box", "pack": "1/1000", "par": 0.1, "units_case": 1, "price": 19.99}, {"name": "Plastic Cutlery - Knife", "category": "MISC. SUPPLIES", "cat_order": 11, "item_order": 108, "vendor": "Webstaurant", "unit": "Box", "pack": "1/1000", "par": 0.1, "units_case": 1, "price": 19.99}, {"name": "Plastic Cutlery - Spoon", "category": "MISC. SUPPLIES", "cat_order": 11, "item_order": 109, "vendor": "Webstaurant", "unit": "Box", "pack": "1/1000", "par": 0.2, "units_case": 1, "price": 19.99}, {"name": "Plastic ToGo Containers", "category": "MISC. SUPPLIES", "cat_order": 11, "item_order": 110, "vendor": "Webstaurant", "unit": "Box", "pack": "", "par": 0, "units_case": 1, "price": 0}, {"name": "Register Roll Thermal", "category": "MISC. SUPPLIES", "cat_order": 11, "item_order": 111, "vendor": "Webstaurant", "unit": "Each", "pack": "1/50ct", "par": 10.0, "units_case": 50, "price": 62.49}, {"name": "Sandwich/Pastry Bag PPC-PB25NK #25", "category": "MISC. SUPPLIES", "cat_order": 11, "item_order": 112, "vendor": "Restaurant Depot", "unit": "Box", "pack": "", "par": 2.0, "units_case": 2000, "price": 44.9}, {"name": "Tissue Bath TM1616 SCA wht 500 sht", "category": "MISC. SUPPLIES", "cat_order": 11, "item_order": 113, "vendor": "Restaurant Depot", "unit": "Each", "pack": "1/12/1000ft", "par": 2.0, "units_case": 12, "price": 26.08}, {"name": "Towel - Multifold Natural - 14103052", "category": "MISC. SUPPLIES", "cat_order": 11, "item_order": 114, "vendor": "Webstaurant", "unit": "Box", "pack": "1/16/250", "par": 12.0, "units_case": 16, "price": 24.99}, {"name": "Towel - Tallfold Napkin Natural", "category": "MISC. SUPPLIES", "cat_order": 11, "item_order": 115, "vendor": "Webstaurant", "unit": "Box", "pack": "1/16/500", "par": 12.0, "units_case": 16, "price": 28.49}, {"name": "Towel-  Dispensor standard white", "category": "MISC. SUPPLIES", "cat_order": 11, "item_order": 116, "vendor": "Restaurant Depot", "unit": "Each", "pack": "1/6 rolls", "par": 1.0, "units_case": 6, "price": 30.82}, {"name": "Wrap Paper Checkered", "category": "MISC. SUPPLIES", "cat_order": 11, "item_order": 117, "vendor": "Restaurant Depot", "unit": "Box", "pack": "1/1000 ct", "par": 0.2, "units_case": 1, "price": 18.12}, {"name": "Wrap Paper - White", "category": "MISC. SUPPLIES", "cat_order": 11, "item_order": 118, "vendor": "Restaurant Depot", "unit": "Box", "pack": "1/6000 ct", "par": 0.3, "units_case": 1, "price": 14.64}, {"name": "Coffee Filter BUNN", "category": "STRAW,  STIRS & COFFEE FILTERS", "cat_order": 12, "item_order": 119, "vendor": "Webstaurant", "unit": "Each", "pack": "1/500ct", "par": 0.3, "units_case": 500, "price": 17.99}, {"name": "Coffee Filters - Toddy.   #2588CT", "category": "STRAW,  STIRS & COFFEE FILTERS", "cat_order": 12, "item_order": 120, "vendor": "Webstaurant", "unit": "Each", "pack": "1/50ct", "par": 0.3, "units_case": 50, "price": 69.99}, {"name": "Straws Red 10.25", "category": "STRAW,  STIRS & COFFEE FILTERS", "cat_order": 12, "item_order": 121, "vendor": "Webstaurant", "unit": "Each", "pack": "1/4/500ct", "par": 2.0, "units_case": 2000, "price": 33.99}, {"name": "Straws Black 7.75", "category": "STRAW,  STIRS & COFFEE FILTERS", "cat_order": 12, "item_order": 122, "vendor": "Webstaurant", "unit": "Each", "pack": "1/24/500ct", "par": 4.0, "units_case": 12000, "price": 64.99}, {"name": "Stick Stirrers Wooden 7.5", "category": "STRAW,  STIRS & COFFEE FILTERS", "cat_order": 12, "item_order": 123, "vendor": "Webstaurant", "unit": "Each", "pack": "1/1500ct", "par": 0.1, "units_case": 1500, "price": 6.49}, {"name": "Cleaner - AJAX", "category": "CLEANING PRODUCTS", "cat_order": 13, "item_order": 124, "vendor": "Restaurant Depot", "unit": "Each", "pack": "1/21oz", "par": 1.0, "units_case": 1, "price": 3.14}, {"name": "Cleaner - Bleach", "category": "CLEANING PRODUCTS", "cat_order": 13, "item_order": 125, "vendor": "Restaurant Depot", "unit": "Bottle", "pack": "1/3/128oz", "par": 3.0, "units_case": 3, "price": 20.7}, {"name": "Cleaner - Dish Washing liquid", "category": "CLEANING PRODUCTS", "cat_order": 13, "item_order": 126, "vendor": "Restaurant Depot", "unit": "Each", "pack": "1/1 gal", "par": 2.0, "units_case": 1, "price": 13.06}, {"name": "Cleaner - Floor Concrete", "category": "CLEANING PRODUCTS", "cat_order": 13, "item_order": 127, "vendor": "Restaurant Depot", "unit": "Each", "pack": "1/169oz", "par": 2.0, "units_case": 1, "price": 18.07}, {"name": "Cleaner - Handsoap refill", "category": "CLEANING PRODUCTS", "cat_order": 13, "item_order": 128, "vendor": "Restaurant Depot", "unit": "Each", "pack": "1/1 gal", "par": 1.0, "units_case": 1, "price": 10.19}, {"name": "Cleaner - Laundry Detergent", "category": "CLEANING PRODUCTS", "cat_order": 13, "item_order": 129, "vendor": "Costco", "unit": "Box", "pack": "1/166.5oz", "par": 0.1, "units_case": 1, "price": 14.39}, {"name": "Cleaner Coffee - AIRPOT 4c", "category": "CLEANING PRODUCTS", "cat_order": 13, "item_order": 130, "vendor": "Webstaurant", "unit": "Each", "pack": "1/100ct", "par": 4.0, "units_case": 1, "price": 15.49}, {"name": "Cleaner Coffee - Espresso", "category": "CLEANING PRODUCTS", "cat_order": 13, "item_order": 131, "vendor": "Webstaurant", "unit": "Each", "pack": "1/20oz", "par": 0.3, "units_case": 1, "price": 9.99}, {"name": "Cleaner Coffee - Grindz", "category": "CLEANING PRODUCTS", "cat_order": 13, "item_order": 132, "vendor": "Webstaurant", "unit": "Each", "pack": "1/15.2oz", "par": 0.3, "units_case": 1, "price": 17.49}, {"name": "Med Green scrub sponge", "category": "CLEANING PRODUCTS", "cat_order": 13, "item_order": 133, "vendor": "Restaurant Depot", "unit": "Each", "pack": "1/10ct", "par": 1.0, "units_case": 1, "price": 20.86}, {"name": "Window Cleaner", "category": "CLEANING PRODUCTS", "cat_order": 13, "item_order": 134, "vendor": "Restaurant Depot", "unit": "Bottle", "pack": "1/1 gal", "par": 0.25, "units_case": 1, "price": 12.17}, {"name": "Animal crackers", "category": "OTHER", "cat_order": 14, "item_order": 135, "vendor": "Costco", "unit": "Box", "pack": "", "par": 0.2, "units_case": 1, "price": 0}, {"name": "Biscotti", "category": "OTHER", "cat_order": 14, "item_order": 136, "vendor": "Costco", "unit": "Box", "pack": "", "par": 0.2, "units_case": 1, "price": 10.99}, {"name": "Dog Biscuits", "category": "OTHER", "cat_order": 14, "item_order": 137, "vendor": "Costco", "unit": "Box", "pack": "1/15lb", "par": 0.2, "units_case": 1, "price": 16.89}, {"name": "Boxed - Milk", "category": "MORE BEVERAGES", "cat_order": 15, "item_order": 138, "vendor": "Costco", "unit": "Box", "pack": "1/18 ct", "par": 6.0, "units_case": 18, "price": 18.99}, {"name": "Boxed - Choc Milk", "category": "MORE BEVERAGES", "cat_order": 15, "item_order": 139, "vendor": "Costco", "unit": "Box", "pack": "1/18 ct", "par": 10.0, "units_case": 19, "price": 18.99}, {"name": "Juice - Apple", "category": "MORE BEVERAGES", "cat_order": 15, "item_order": 140, "vendor": "Costco", "unit": "Bottle", "pack": "1/2 ct", "par": 0.3, "units_case": 1, "price": 6.99}, {"name": "Juice - Orange", "category": "MORE BEVERAGES", "cat_order": 15, "item_order": 141, "vendor": "Costco", "unit": "Bottle", "pack": "1/2 ct", "par": 2.0, "units_case": 1, "price": 0}, {"name": "Water - Sparking", "category": "MORE BEVERAGES", "cat_order": 15, "item_order": 142, "vendor": "Costco", "unit": "Bottle", "pack": "1/24 ct", "par": 10.0, "units_case": 24, "price": 0}, {"name": "Water - Sparking Waterloo", "category": "MORE BEVERAGES", "cat_order": 15, "item_order": 143, "vendor": "Costco", "unit": "Bottle", "pack": "1/24ct", "par": 12.0, "units_case": 24, "price": 0}, {"name": "Water - Sportscap Crystal Geyser", "category": "MORE BEVERAGES", "cat_order": 15, "item_order": 144, "vendor": "Costco", "unit": "Bottle", "pack": "1/32 ct", "par": 10.0, "units_case": 32, "price": 0}, {"name": "Milk - 2%", "category": "MORE BEVERAGES", "cat_order": 15, "item_order": 145, "vendor": "Costco", "unit": "Bottle", "pack": "1/2ct", "par": 12.0, "units_case": 2, "price": 0}, {"name": "Cookie - Choc Chip Cookie Dough", "category": "CAKES, COOKIES AND BROWNIES", "cat_order": 16, "item_order": 146, "vendor": "Performance", "unit": "Box", "pack": "1/170ct", "par": 72.0, "units_case": 170, "price": 60.98}, {"name": "Brownie - triple Choc", "category": "CAKES, COOKIES AND BROWNIES", "cat_order": 16, "item_order": 147, "vendor": "Performance", "unit": "Box", "pack": "1/2/24ct", "par": 48.0, "units_case": 48, "price": 49.63}, {"name": "Ny  Cheesecake", "category": "CAKES, COOKIES AND BROWNIES", "cat_order": 16, "item_order": 148, "vendor": "Performance", "unit": "Box", "pack": "1/4/12ct", "par": 12.0, "units_case": 48, "price": 165.05}, {"name": "Bagels - Plain", "category": "BREADS", "cat_order": 17, "item_order": 149, "vendor": "Johnson Bros", "unit": "Each", "pack": "", "par": 35.0, "units_case": 75, "price": 41.22}, {"name": "Bagels - Everything", "category": "BREADS", "cat_order": 17, "item_order": 150, "vendor": "Johnson Bros", "unit": "Each", "pack": "", "par": 15.0, "units_case": 75, "price": 43.27}, {"name": "Ciabatta Bread", "category": "BREADS", "cat_order": 17, "item_order": 151, "vendor": "Costco", "unit": "Each", "pack": "", "par": 60.0, "units_case": 12, "price": 5.99}, {"name": "Croissant", "category": "BREADS", "cat_order": 17, "item_order": 152, "vendor": "Costco", "unit": "Each", "pack": "", "par": 18.0, "units_case": 12, "price": 5.99}, {"name": "Tortillas - Flour", "category": "BREADS", "cat_order": 17, "item_order": 153, "vendor": "Other", "unit": "Each", "pack": "", "par": 36.0, "units_case": 24, "price": 2.25}, {"name": "Tortillas - Corn", "category": "BREADS", "cat_order": 17, "item_order": 154, "vendor": "Other", "unit": "Each", "pack": "", "par": 1.0, "units_case": 60, "price": 4.75}, {"name": "EverRoast Chicken", "category": "MEATS & SOUP", "cat_order": 18, "item_order": 155, "vendor": "Performance", "unit": "Each", "pack": "1/2/3lb", "par": 64.0, "units_case": 2, "price": 72.55}, {"name": "Pre Cooked Bacon", "category": "MEATS & SOUP", "cat_order": 18, "item_order": 156, "vendor": "Costco", "unit": "Each", "pack": "", "par": 10.0, "units_case": 50, "price": 15.99}, {"name": "Pre Cooked Sausage", "category": "MEATS & SOUP", "cat_order": 18, "item_order": 157, "vendor": "Performance", "unit": "Each", "pack": "1/80ct", "par": 400.0, "units_case": 80, "price": 39.07}, {"name": "Turkey", "category": "MEATS & SOUP", "cat_order": 18, "item_order": 158, "vendor": "Costco", "unit": "Each", "pack": "1/3/14oz", "par": 5.0, "units_case": 3, "price": 12.49}, {"name": "Soup", "category": "MEATS & SOUP", "cat_order": 18, "item_order": 159, "vendor": "Costco", "unit": "Each", "pack": "", "par": 5.0, "units_case": 1, "price": 0}, {"name": "Roasted Peppers", "category": "VEGETABLES", "cat_order": 19, "item_order": 160, "vendor": "Restaurant Depot", "unit": "Can", "pack": "1/10/3oz", "par": 30.0, "units_case": 10, "price": 7.49}, {"name": "Spinach", "category": "VEGETABLES", "cat_order": 19, "item_order": 161, "vendor": "Costco", "unit": "Box", "pack": "1", "par": 2.0, "units_case": 1, "price": 4.49}, {"name": "Tomato", "category": "VEGETABLES", "cat_order": 19, "item_order": 162, "vendor": "HEB", "unit": "Each", "pack": "1", "par": 20.0, "units_case": 1, "price": 0}, {"name": "Potato Chips - ZAPPS", "category": "VEGETABLES", "cat_order": 19, "item_order": 163, "vendor": "Costco", "unit": "Box", "pack": "", "par": 10.0, "units_case": 24, "price": 0}, {"name": "Chipotle dressing", "category": "DRESSINGS", "cat_order": 20, "item_order": 164, "vendor": "HEB", "unit": "Each", "pack": "1/16oz", "par": 1.0, "units_case": 1, "price": 2.75}, {"name": "Pepperhouse Gourmaise", "category": "DRESSINGS", "cat_order": 20, "item_order": 165, "vendor": "HEB", "unit": "Each", "pack": "1/16oz", "par": 1.0, "units_case": 1, "price": 2.75}, {"name": "Salsa", "category": "DRESSINGS", "cat_order": 20, "item_order": 166, "vendor": "Other", "unit": "Each", "pack": "1", "par": 1.0, "units_case": 1, "price": 0}, {"name": "Cups - Tiny", "category": "ICE CREAM", "cat_order": 21, "item_order": 167, "vendor": "Amys", "unit": "Sleeve", "pack": "", "par": 2.0, "units_case": 1, "price": 5.0}, {"name": "Cups - Small", "category": "ICE CREAM", "cat_order": 21, "item_order": 168, "vendor": "Amys", "unit": "Sleeve", "pack": "", "par": 2.0, "units_case": 1, "price": 5.0}, {"name": "Cups - Large", "category": "ICE CREAM", "cat_order": 21, "item_order": 169, "vendor": "Amys", "unit": "Sleeve", "pack": "", "par": 2.0, "units_case": 1, "price": 5.0}, {"name": "Cups - Pint", "category": "ICE CREAM", "cat_order": 21, "item_order": 170, "vendor": "Amys", "unit": "Sleeve", "pack": "", "par": 1.0, "units_case": 1, "price": 5.0}, {"name": "Ice Cream - Austin Grind Coffee", "category": "ICE CREAM", "cat_order": 21, "item_order": 171, "vendor": "Amys", "unit": "Each", "pack": "1/3gal", "par": 0.25, "units_case": 1, "price": 58.65}, {"name": "Ice Cream - Belgian Choc", "category": "ICE CREAM", "cat_order": 21, "item_order": 172, "vendor": "Amys", "unit": "Each", "pack": "1/3gal", "par": 0.25, "units_case": 1, "price": 58.65}, {"name": "Ice Cream - Mexican Vanilla", "category": "ICE CREAM", "cat_order": 21, "item_order": 173, "vendor": "Amys", "unit": "Each", "pack": "1/3gal", "par": 1.0, "units_case": 1, "price": 58.65}, {"name": "Ice Cream - Oreo", "category": "ICE CREAM", "cat_order": 21, "item_order": 174, "vendor": "Amys", "unit": "Each", "pack": "1/3gal", "par": 0.25, "units_case": 1, "price": 58.65}, {"name": "Ice Cream - Strawberry", "category": "ICE CREAM", "cat_order": 21, "item_order": 175, "vendor": "Amys", "unit": "Each", "pack": "1/3gal", "par": 0.25, "units_case": 1, "price": 58.65}, {"name": "Ice Cream - Zilker Mint", "category": "ICE CREAM", "cat_order": 21, "item_order": 176, "vendor": "Amys", "unit": "Each", "pack": "1/3gal", "par": 0.25, "units_case": 1, "price": 58.65}, {"name": "Espresso", "category": "COFFEE 5 LB", "cat_order": 22, "item_order": 177, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/5lb", "par": 35.0, "units_case": 1, "price": 0}, {"name": "Decaf Espresso", "category": "COFFEE 5 LB", "cat_order": 22, "item_order": 178, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/5lb", "par": 3.0, "units_case": 1, "price": 0}, {"name": "French Roast", "category": "COFFEE 5 LB", "cat_order": 22, "item_order": 179, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/5lb", "par": 2.0, "units_case": 1, "price": 0}, {"name": "Italian Roast", "category": "COFFEE 5 LB", "cat_order": 22, "item_order": 180, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/5lb", "par": 2.0, "units_case": 1, "price": 0}, {"name": "House Blend", "category": "COFFEE 5 LB", "cat_order": 22, "item_order": 181, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/5lb", "par": 4.0, "units_case": 1, "price": 0}, {"name": "Signature Blend", "category": "COFFEE 5 LB", "cat_order": 22, "item_order": 182, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/5lb", "par": 4.0, "units_case": 1, "price": 0}, {"name": "Columbian", "category": "COFFEE 5 LB", "cat_order": 22, "item_order": 183, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/5lb", "par": 2.0, "units_case": 1, "price": 0}, {"name": "Brazilian", "category": "COFFEE 5 LB", "cat_order": 22, "item_order": 184, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/5lb", "par": 1.0, "units_case": 1, "price": 0}, {"name": "Moka Java", "category": "COFFEE 5 LB", "cat_order": 22, "item_order": 185, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/5lb", "par": 1.0, "units_case": 1, "price": 0}, {"name": "Sumatran", "category": "COFFEE 5 LB", "cat_order": 22, "item_order": 186, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/5lb", "par": 1.0, "units_case": 1, "price": 0}, {"name": "Tanzanian", "category": "COFFEE 5 LB", "cat_order": 22, "item_order": 187, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/5lb", "par": 1.0, "units_case": 1, "price": 0}, {"name": "Ethiopian", "category": "COFFEE 5 LB", "cat_order": 22, "item_order": 188, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/5lb", "par": 1.0, "units_case": 1, "price": 0}, {"name": "Holiday Blend", "category": "COFFEE 5 LB", "cat_order": 22, "item_order": 189, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/5lb", "par": 0, "units_case": 1, "price": 0}, {"name": "TODDY", "category": "COFFEE 5 LB", "cat_order": 22, "item_order": 190, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/5lb", "par": 10.0, "units_case": 1, "price": 0}, {"name": "Espresso", "category": "COFFEE VAC PAC", "cat_order": 23, "item_order": 191, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/.75lb", "par": 6.0, "units_case": 1, "price": 0}, {"name": "French Roast", "category": "COFFEE VAC PAC", "cat_order": 23, "item_order": 192, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/.75lb", "par": 2.0, "units_case": 1, "price": 0}, {"name": "Italian Roast", "category": "COFFEE VAC PAC", "cat_order": 23, "item_order": 193, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/.75lb", "par": 2.0, "units_case": 1, "price": 0}, {"name": "House Blend", "category": "COFFEE VAC PAC", "cat_order": 23, "item_order": 194, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/.75lb", "par": 4.0, "units_case": 1, "price": 0}, {"name": "Signature Blend", "category": "COFFEE VAC PAC", "cat_order": 23, "item_order": 195, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/.75lb", "par": 2.0, "units_case": 1, "price": 0}, {"name": "Columbian", "category": "COFFEE VAC PAC", "cat_order": 23, "item_order": 196, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/.75lb", "par": 2.0, "units_case": 1, "price": 0}, {"name": "Brazilian", "category": "COFFEE VAC PAC", "cat_order": 23, "item_order": 197, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/.75lb", "par": 2.0, "units_case": 1, "price": 0}, {"name": "Moka Java", "category": "COFFEE VAC PAC", "cat_order": 23, "item_order": 198, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/.75lb", "par": 2.0, "units_case": 1, "price": 0}, {"name": "Sumatran", "category": "COFFEE VAC PAC", "cat_order": 23, "item_order": 199, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/.75lb", "par": 2.0, "units_case": 1, "price": 0}, {"name": "Tanzanian", "category": "COFFEE VAC PAC", "cat_order": 23, "item_order": 200, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/.75lb", "par": 2.0, "units_case": 1, "price": 0}, {"name": "Ethiopian", "category": "COFFEE VAC PAC", "cat_order": 23, "item_order": 201, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/.75lb", "par": 2.0, "units_case": 1, "price": 0}, {"name": "Holiday Blend", "category": "COFFEE VAC PAC", "cat_order": 23, "item_order": 202, "vendor": "Dillanos", "unit": "Lbs", "pack": "1/.75lb", "par": 2.0, "units_case": 1, "price": 0}];
-
-const SKU_MAP = {"Cups Clear 1oz": "COLD-001", "Cups Clear 2oz": "COLD-002", "Soup container - 8 oz": "COLD-003", "Cup Clear 8 oz": "COLD-004", "Cup Clear 16/18oz": "COLD-005", "Cup Clear 24oz": "COLD-006", "Cup Clear 32oz": "COLD-007", "Lid plastic 1oz": "COLD-008", "Lid plastic 2oz": "COLD-009", "Lid Cold Slot 8": "COLD-010", "Lid Cold Slot 12/24": "COLD-011", "Lid Cold Slot 32oz": "COLD-012", "Lid Cold Dome 16/24oz": "COLD-013", "Lid Cold Dome 32oz": "COLD-014", "Cup Hot 04oz": "HOT-001", "Cup Hot 10oz": "HOT-002", "Cup Hot 12oz": "HOT-003", "Cup Hot 16oz": "HOT-004", "Cup Hot 20oz": "HOT-005", "Lid Hot 4oz": "HOT-006", "Lid Hot 10oz": "HOT-007", "Lid Hot 12-20oz": "HOT-008", "Lid Sippy Hot": "HOT-009", "Paper Sleeve": "SLEEVE-001", "Brew Barrel 96oz": "SLEEVE-002", "Carrier 4 cup Cruiser - Pulp": "SLEEVE-003", "Equal 2000 Packets": "SWEET-001", "Sugar in the Raw": "SWEET-002", "Splenda": "SWEET-003", "Sugar C&H": "SWEET-004", "Sweet N Low": "SWEET-005", "Ghirardelli Sweet Ground Chocolate & Cocoa Powder": "POWDER-001", "Ghirardelli  Sweet Ground Dark Chocolate & Cocoa Powder": "POWDER-002", "Ghirardelli Sweet Ground White Chocolate Flavored Powder": "POWDER-003", "Ghirardelli Vanilla Powder (3#)": "POWDER-004", "Matcha Green Tea Latte": "POWDER-005", "Latte Powder   (Big Train)": "POWDER-006", "Feature Powder": "POWDER-007", "Island Oasis MANGO": "POWDER-008", "Island Oasis  STRAWBERRY": "POWDER-009", "Cinnamon Powder": "TOPPING-001", "Choc Shavings": "TOPPING-002", "Choc Covered Espresso Beans": "TOPPING-003", "Coconut Crunch # 42203": "TOPPING-004", "Ground Korinti Cinnamon": "TOPPING-005", "Honey": "TOPPING-006", "Nutella": "TOPPING-007", "Oatmeal": "TOPPING-008", "PAM  - Spray Oil": "TOPPING-009", "Peanut Butter": "TOPPING-010", "Strawberry Jam Heinz": "TOPPING-011", "Gummy Bears": "TOPPING-012", "Sprinkles": "TOPPING-013", "Choc Chips": "TOPPING-014", "Numi - Breakfast Blend": "TEA-001", "Numi - Chamomile Lemon": "TEA-002", "Numi - Earl Grey": "TEA-003", "Numi - Chai": "TEA-004", "Numi - Ginger Lemon": "TEA-005", "Numi - Gunpowder  Green": "TEA-006", "Numi -  Jasmine Green": "TEA-007", "Numi - Moroccan Mint": "TEA-008", "Iced High Organic Blk": "TEA-009", "Ice Citrus Green": "TEA-010", "Berried Treasured Tropical Iced Tea": "TEA-011", "Country Time Lemonade": "TEA-012", "Banana - Natural*": "SYRUP-001", "Cane Syrup": "SYRUP-002", "Caramel": "SYRUP-003", "Caramel Sugar Free": "SYRUP-004", "Cinnamon": "SYRUP-005", "Chai Spiced": "SYRUP-006", "Chai Spiced - Sugar Free": "SYRUP-007", "Coconut": "SYRUP-008", "Cr\u00e8me de Menthe - Natural*": "SYRUP-009", "Hazelnut": "SYRUP-010", "Hazelnut Sugar Free": "SYRUP-011", "Kumquat": "SYRUP-012", "Lavender": "SYRUP-013", "Passionfruit": "SYRUP-014", "Peppermint": "SYRUP-015", "Raspberry Classic": "SYRUP-016", "Strawberry": "SYRUP-017", "Vanilla Natural": "SYRUP-018", "Vanilla Sugar Free": "SYRUP-019", "Watermelon": "SYRUP-020", "Peach": "SYRUP-021", "Sauce - Caramel Sauce": "SYRUP-022", "Sauce - Choc Ghiridelli   Sauce": "SYRUP-023", "Pumpkin Pie Sauce": "SYRUP-024", "Almond Milk": "MILK-001", "Coconut Milk": "MILK-002", "PACIFIC BLENDERS SOY MILK PLAIN": "MILK-003", "Oat Milk": "MILK-004", "Butter": "DAIRY-001", "Cream Cheese": "DAIRY-002", "Egg Whites": "DAIRY-003", "Cheese - Cheddar - Sliced": "DAIRY-004", "Cheese - Swiss Cheese": "DAIRY-005", "Cheese - PepperJack Cheese": "DAIRY-006", "Coffee Creamers": "DAIRY-007", "Can Liner Black (45gal)": "MISC-001", "Film Roll": "MISC-002", "Gloves Large 8940": "MISC-003", "PACTIV FOAM H": "MISC-004", "Paper Bags Brown #12 big": "MISC-005", "Plastic Cutlery - Fork": "MISC-006", "Plastic Cutlery - Knife": "MISC-007", "Plastic Cutlery - Spoon": "MISC-008", "Plastic ToGo Containers": "MISC-009", "Register Roll Thermal": "MISC-010", "Sandwich/Pastry Bag PPC-PB25NK #25": "MISC-011", "Tissue Bath TM1616 SCA wht 500 sht": "MISC-012", "Towel - Multifold Natural - 14103052": "MISC-013", "Towel - Tallfold Napkin Natural": "MISC-014", "Towel-  Dispensor standard white": "MISC-015", "Wrap Paper Checkered": "MISC-016", "Wrap Paper - White": "MISC-017", "Coffee Filter BUNN": "STRAW-001", "Coffee Filters - Toddy.   #2588CT": "STRAW-002", "Straws Red 10.25": "STRAW-003", "Straws Black 7.75": "STRAW-004", "Stick Stirrers Wooden 7.5": "STRAW-005", "Cleaner - AJAX": "CLEAN-001", "Cleaner - Bleach": "CLEAN-002", "Cleaner - Dish Washing liquid": "CLEAN-003", "Cleaner - Floor Concrete": "CLEAN-004", "Cleaner - Handsoap refill": "CLEAN-005", "Cleaner - Laundry Detergent": "CLEAN-006", "Cleaner Coffee - AIRPOT 4c": "CLEAN-007", "Cleaner Coffee - Espresso": "CLEAN-008", "Cleaner Coffee - Grindz": "CLEAN-009", "Med Green scrub sponge": "CLEAN-010", "Window Cleaner": "CLEAN-011", "Animal crackers": "OTHER-001", "Biscotti": "OTHER-002", "Dog Biscuits": "OTHER-003", "Boxed - Milk": "BEV-001", "Boxed - Choc Milk": "BEV-002", "Juice - Apple": "BEV-003", "Juice - Orange": "BEV-004", "Water - Sparking": "BEV-005", "Water - Sparking Waterloo": "BEV-006", "Water - Sportscap Crystal Geyser": "BEV-007", "Milk - 2%": "BEV-008", "Cookie - Choc Chip Cookie Dough": "BAKERY-001", "Brownie - triple Choc": "BAKERY-002", "Ny  Cheesecake": "BAKERY-003", "Bagels - Plain": "BREAD-001", "Bagels - Everything": "BREAD-002", "Ciabatta Bread": "BREAD-003", "Croissant": "BREAD-004", "Tortillas - Flour": "BREAD-005", "Tortillas - Corn": "BREAD-006", "EverRoast Chicken": "MEAT-001", "Pre Cooked Bacon": "MEAT-002", "Pre Cooked Sausage": "MEAT-003", "Turkey": "MEAT-004", "Soup": "MEAT-005", "Roasted Peppers": "VEG-001", "Spinach": "VEG-002", "Tomato": "VEG-003", "Potato Chips - ZAPPS": "VEG-004", "Chipotle dressing": "DRESS-001", "Pepperhouse Gourmaise": "DRESS-002", "Salsa": "DRESS-003", "Cups - Tiny": "ICE-001", "Cups - Small": "ICE-002", "Cups - Large": "ICE-003", "Cups - Pint": "ICE-004", "Ice Cream - Austin Grind Coffee": "ICE-005", "Ice Cream - Belgian Choc": "ICE-006", "Ice Cream - Mexican Vanilla": "ICE-007", "Ice Cream - Oreo": "ICE-008", "Ice Cream - Strawberry": "ICE-009", "Ice Cream - Zilker Mint": "ICE-010", "Espresso": "COFFVAC-001", "Decaf Espresso": "COFF5-002", "French Roast": "COFFVAC-002", "Italian Roast": "COFFVAC-003", "House Blend": "COFFVAC-004", "Signature Blend": "COFFVAC-005", "Columbian": "COFFVAC-006", "Brazilian": "COFFVAC-007", "Moka Java": "COFFVAC-008", "Sumatran": "COFFVAC-009", "Tanzanian": "COFFVAC-010", "Ethiopian": "COFFVAC-011", "Holiday Blend": "COFFVAC-012", "TODDY": "COFF5-014"};
 
 
 // ── Auth state ─────────────────────────────────────────────────────────────
@@ -654,10 +749,56 @@ function initApp() {
   document.getElementById('hist-to').value   = today.toISOString().split('T')[0];
 
   onWeekChange();
-  document.getElementById('cnt-total').textContent = INVENTORY.length;
-  renderCount();
-  updateBadge('local');
-  loadRecentUsage();
+
+  // Load live catalog from Supabase so Count tab always uses
+  // up-to-date PAR, units_case, and unit values
+  loadCatalogForCount();
+}
+
+// ── Load live catalog for Count tab ───────────────────────────────────────────
+// Fetches active catalog items from Supabase so PAR/units_case/unit are always
+// current. Loads from Supabase — the single source of truth.
+async function loadCatalogForCount() {
+  // Always load from Supabase — no embedded fallback
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+    // Offline placeholder — show empty state with message
+    document.getElementById('cnt-total').textContent = '0';
+    document.getElementById('count-list').innerHTML =
+      '<div style="padding:32px;text-align:center;color:var(--muted)">' +
+      'Configure Supabase credentials to load inventory.</div>';
+    updateBadge('local');
+    return;
+  }
+  try {
+    const res  = await fetch(
+      `${SUPABASE_URL}/rest/v1/catalog?active=eq.true` +
+      `&order=sort_order.asc,item_order.asc&limit=500`,
+      { headers: supaHeaders() }
+    );
+    const data = await res.json();
+    if (!Array.isArray(data) || !data.length) {
+      document.getElementById('count-list').innerHTML =
+        '<div style="padding:32px;text-align:center;color:var(--muted)">No active catalog items found.</div>';
+      return;
+    }
+    // Normalise fields — ensure numerics are numbers
+    window._activeInventory = data.map(item => ({
+      ...item,
+      par:        parseFloat(item.par)        || 0,
+      units_case: parseFloat(item.units_case) || 1,
+      price:      parseFloat(item.price)      || 0,
+      cat_order:  item.sort_order  || 0,
+      item_order: item.item_order  || 0,
+    }));
+    document.getElementById('cnt-total').textContent = window._activeInventory.length;
+    renderCount();
+    updateBadge('local');
+    loadRecentUsage();
+  } catch(e) {
+    console.error('Failed to load catalog:', e);
+    document.getElementById('count-list').innerHTML =
+      '<div style="padding:32px;text-align:center;color:var(--red)">Error loading catalog. Check connection.</div>';
+  }
 }
 
 // ── Tab switching ──────────────────────────────────────────────────────────
@@ -684,8 +825,41 @@ function onWeekChange() {
         {month:'short', day:'numeric', year:'numeric'})
     : 'Set week date below';
   document.getElementById('hdr-week').textContent = lbl;
-  // Reload usage data relative to the new week date
+  // Load any saved counts for this week from Supabase, then reload usage
+  if (w) loadSavedCounts(w);
   loadRecentUsage();
+}
+
+async function loadSavedCounts(weekDate) {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return;
+  try {
+    const res  = await fetch(
+      `${SUPABASE_URL}/rest/v1/inventory_counts` +
+      `?select=item_name,count_value,order_cases` +
+      `&week_date=eq.${weekDate}&limit=500`,
+      { headers: supaHeaders() }
+    );
+    const rows = await res.json();
+    if (!Array.isArray(rows) || !rows.length) return;
+
+    // Merge DB counts into local counts — DB takes precedence over localStorage
+    let changed = false;
+    for (const row of rows) {
+      if (row.count_value !== null && row.count_value !== undefined) {
+        counts[row.item_name] = parseFloat(row.count_value);
+        changed = true;
+      }
+    }
+    if (changed) {
+      localStorage.setItem('ag_counts', JSON.stringify(counts));
+      localStorage.setItem('ag_week', weekDate);
+      updateBadge('ok');
+      renderCount();
+      toast(`Loaded ${rows.length} saved counts for this week`);
+    }
+  } catch(e) {
+    console.warn('Could not load saved counts:', e);
+  }
 }
 
 // ── Badge / toast ──────────────────────────────────────────────────────────
@@ -717,27 +891,84 @@ function orderCases(item) {
 }
 
 // ── Render count ───────────────────────────────────────────────────────────
+function populateCountCatFilter() {
+  const sel = document.getElementById('cnt-cat-filter');
+  if (!sel || sel.options.length > 1) return;
+  const src = window._activeInventory || [];
+  const cats = [...new Set(src.map(i => i.category))];
+  cats.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+}
+
 function renderCount() {
-  const q  = (document.getElementById('search').value || '').toLowerCase();
-  const el = document.getElementById('count-list');
-  const cats = {};
-  for (const item of INVENTORY) {
+  populateCountCatFilter();
+  const q         = (document.getElementById('search')?.value || '').toLowerCase();
+  const catFilt   = document.getElementById('cnt-cat-filter')?.value || '';
+  const sortBy    = document.getElementById('cnt-sort')?.value || 'catalog';
+  const uncounted = document.getElementById('cnt-uncounted')?.checked || false;
+  const lowOnly   = document.getElementById('cnt-low')?.checked || false;
+  const el        = document.getElementById('count-list');
+  if (!el) return;
+
+  // Use live catalog from Supabase
+  const source = window._activeInventory || [];
+
+  // Filter from live catalog source
+  let items = source.filter(item => {
+    if (catFilt && item.category !== catFilt) return false;
     if (q && !item.name.toLowerCase().includes(q) &&
-             !item.category.toLowerCase().includes(q)) continue;
-    (cats[item.category] = cats[item.category] || []).push(item);
+             !item.category.toLowerCase().includes(q)) return false;
+    if (uncounted && counts[item.name] !== undefined && counts[item.name] !== '') return false;
+    if (lowOnly) {
+      const c = counts[item.name];
+      if (c === undefined || c === '') return false;
+      if (parseFloat(c) >= item.par) return false;
+    }
+    return true;
+  });
+
+  // Sort
+  if (sortBy === 'name') {
+    items = [...items].sort((a,b) => a.name.localeCompare(b.name));
+  } else if (sortBy === 'shortage') {
+    items = [...items].sort((a,b) => {
+      const sa = counts[a.name] !== undefined ? Math.max(a.par - parseFloat(counts[a.name]||0), 0) : 0;
+      const sb = counts[b.name] !== undefined ? Math.max(b.par - parseFloat(counts[b.name]||0), 0) : 0;
+      return sb - sa;
+    });
+  } else if (sortBy === 'count') {
+    items = [...items].sort((a,b) => {
+      const ca = counts[a.name] !== undefined ? parseFloat(counts[a.name]) : -1;
+      const cb = counts[b.name] !== undefined ? parseFloat(counts[b.name]) : -1;
+      return cb - ca;
+    });
+  }
+  // default 'catalog' = catalog order from Supabase (sort_order, item_order)
+
+  // Update filter count
+  const countEl = document.getElementById('cnt-filter-count');
+  if (countEl) countEl.textContent = items.length < (window._activeInventory||[]).length
+    ? `${items.length} of ${(window._activeInventory||[]).length} items` : '';
+
+  // Group by category (preserving sorted order)
+  const cats = {};
+  const catOrder = [];
+  for (const item of items) {
+    if (!cats[item.category]) { cats[item.category] = []; catOrder.push(item.category); }
+    cats[item.category].push(item);
   }
   let html = '';
-  for (const [cat, items] of Object.entries(cats)) {
-    const done = items.filter(i => counts[i.name] !== undefined && counts[i.name] !== '').length;
-    const low  = items.filter(i => {
+  for (const cat of catOrder) {
+    const catItems = cats[cat];
+    const done = catItems.filter(i => counts[i.name] !== undefined && counts[i.name] !== '').length;
+    const low  = catItems.filter(i => {
       const c = counts[i.name];
       return c !== undefined && c !== '' && parseFloat(c) < i.par;
     }).length;
     html += `<div class="cat-header">
       <span>${cat}</span>
-      <span style="font-weight:500;opacity:.8">${done}/${items.length}${low ? ' · <span style="color:#c0392b">' + low + ' low</span>' : ''}</span>
+      <span style="font-weight:500;opacity:.8">${done}/${catItems.length}${low ? ' · <span style="color:#c0392b">' + low + ' low</span>' : ''}</span>
     </div><div class="item-list">`;
-    for (const item of items) {
+    for (const item of catItems) {
       const cnt  = counts[item.name];
       const has  = cnt !== undefined && cnt !== '';
       const oc   = has ? orderCases(item) : null;
@@ -755,7 +986,7 @@ function renderCount() {
             <span class="par-badge">PAR ${item.par}</span>
             ${low2 ? '<span class="low-badge">LOW</span>' : ''}
           </div>
-          <div class="item-meta">${SKU_MAP[item.name] ? '<span style="font-family:monospace;font-weight:700;color:#1a3a5c">' + SKU_MAP[item.name] + '</span> · ' : ''}${item.unit} · ${item.vendor}</div>
+          <div class="item-meta">${item.sku ? '<span style="font-family:monospace;font-weight:700;color:#1a3a5c">' + item.sku + '</span> · ' : ''}${item.unit} · ${item.vendor}</div>
         </div>
         <div class="count-col">
           <label>Count</label>
@@ -840,7 +1071,7 @@ function setCount(input) {
   updateBadge('local');
   localStorage.setItem('ag_counts', JSON.stringify(counts));
 
-  const item = INVENTORY.find(i => i.name === name);
+  const item = (window._activeInventory||[]).find(i => i.name === name);
   if (!item) return;
   const oc   = orderCases(item);
   const cnt  = counts[name];
@@ -864,7 +1095,8 @@ function setCount(input) {
 }
 
 function updateProgress() {
-  const done = INVENTORY.filter(i => counts[i.name] !== undefined && counts[i.name] !== '').length;
+  const src  = window._activeInventory || [];
+  const done = src.filter(i => counts[i.name] !== undefined && counts[i.name] !== '').length;
   document.getElementById('cnt-done').textContent = done;
 }
 
@@ -889,7 +1121,8 @@ async function saveCounts() {
   if (!week) { toast('Set the week date first'); return; }
   const staff = document.getElementById('staff-name').value || null;
   const rows  = [];
-  for (const item of INVENTORY) {
+  const saveSrc = window._activeInventory || [];
+  for (const item of saveSrc) {
     const c = counts[item.name];
     if (c === undefined || c === '') continue;
     const oc = orderCases(item);
@@ -897,7 +1130,7 @@ async function saveCounts() {
       vendor:item.vendor, unit:item.unit, par:item.par,
       count_value:parseFloat(c), order_cases:oc,
       price_per_case:item.price||null, submitted_by:staff,
-      sku: SKU_MAP[item.name] || item.sku || null });
+      sku: item.sku || null });
   }
   if (!rows.length) { toast('No counts entered yet'); return; }
   updateBadge('saving');
@@ -930,12 +1163,47 @@ async function saveCounts() {
 
 // ── PO ─────────────────────────────────────────────────────────────────────
 function renderPO() {
+  const poSrc = window._activeInventory || [];
+
+  // Build full vendor list for filter dropdown
   const byV = {};
-  for (const item of INVENTORY) {
+  for (const item of poSrc) {
     const oc = orderCases(item);
     if (!oc) continue;
     (byV[item.vendor] = byV[item.vendor] || []).push({...item, oc});
   }
+
+  // Populate vendor filter dropdown (only vendors with items to order)
+  const sel = document.getElementById('po-vendor-filter');
+  if (sel) {
+    const prevVal = sel.value;
+    sel.innerHTML = '<option value="">All vendors</option>';
+    Object.keys(byV).sort().forEach(v => {
+      sel.insertAdjacentHTML('beforeend',
+        `<option value="${v}" ${v===prevVal?'selected':''}>${v} (${byV[v].length})</option>`);
+    });
+    // Restore selection if still valid
+    if (prevVal && byV[prevVal]) sel.value = prevVal;
+  }
+
+  // Apply vendor filter
+  const vendorFilt = sel?.value || '';
+  const filteredByV = vendorFilt
+    ? { [vendorFilt]: byV[vendorFilt] }
+    : byV;
+
+  // Update count badge
+  const countEl = document.getElementById('po-filter-count');
+  if (countEl) {
+    const totalVendors = Object.keys(byV).length;
+    const totalItems   = Object.values(byV).reduce((s,a)=>s+a.length, 0);
+    if (vendorFilt) {
+      countEl.textContent = `${(byV[vendorFilt]||[]).length} items · ${totalVendors} vendors total`;
+    } else {
+      countEl.textContent = totalItems ? `${totalItems} items across ${totalVendors} vendors` : '';
+    }
+  }
+
   const el = document.getElementById('po-list');
   if (!Object.keys(byV).length) {
     el.innerHTML = `<div class="no-orders"><div style="font-size:2.5rem;margin-bottom:8px">✅</div>
@@ -943,8 +1211,14 @@ function renderPO() {
       <div style="margin-top:6px;color:#999">Enter counts on the Count tab first.</div></div>`;
     return;
   }
+
+  if (vendorFilt && !byV[vendorFilt]) {
+    el.innerHTML = `<div class="no-orders">No orders for <strong>${vendorFilt}</strong>.</div>`;
+    return;
+  }
+
   let html = '';
-  for (const [v, items] of Object.entries(byV).sort()) {
+  for (const [v, items] of Object.entries(filteredByV).sort()) {
     const total = items.reduce((s,i)=>s+(i.price>0?i.oc*i.price:0),0);
     html += `<div class="po-card"><div class="po-hdr">
       <span>📦 ${v}</span><span>${items.length} item${items.length>1?'s':''}</span></div>
@@ -973,8 +1247,9 @@ function renderPO() {
 
 // ── Summary ────────────────────────────────────────────────────────────────
 function renderSummary() {
-  const done  = INVENTORY.filter(i=>counts[i.name]!==undefined&&counts[i.name]!=='').length;
-  const short = INVENTORY.filter(i=>{const c=counts[i.name];return c!==undefined&&c!==''&&parseFloat(c)<i.par;});
+  const sumSrc = window._activeInventory || [];
+  const done  = sumSrc.filter(i=>counts[i.name]!==undefined&&counts[i.name]!=='').length;
+  const short = sumSrc.filter(i=>{const c=counts[i.name];return c!==undefined&&c!==''&&parseFloat(c)<i.par;});
   const cost  = short.reduce((s,item)=>{const oc=orderCases(item);return s+(oc&&item.price>0?oc*item.price:0);},0);
   document.getElementById('s-counted').textContent = done;
   document.getElementById('s-short').textContent   = short.length;
@@ -995,6 +1270,74 @@ function renderSummary() {
 }
 
 // ── History ────────────────────────────────────────────────────────────────
+
+// ── History filter / sort ─────────────────────────────────────────────────────
+function populateHistoryFilters(data) {
+  // Category filter
+  const catSel = document.getElementById('hist-cat-filter');
+  const prevCat = catSel.value;
+  catSel.innerHTML = '<option value="">All categories</option>';
+  const cats = [...new Set(data.map(r => r.category).filter(Boolean))].sort();
+  cats.forEach(c => catSel.insertAdjacentHTML('beforeend',
+    `<option value="${c}" ${c===prevCat?'selected':''}>${c}</option>`));
+
+  // Vendor filter
+  const vendSel = document.getElementById('hist-vendor-filter');
+  const prevVend = vendSel.value;
+  vendSel.innerHTML = '<option value="">All vendors</option>';
+  const vends = [...new Set(data.map(r => r.vendor).filter(Boolean))].sort();
+  vends.forEach(v => vendSel.insertAdjacentHTML('beforeend',
+    `<option value="${v}" ${v===prevVend?'selected':''}>${v}</option>`));
+
+  // Show filter bar
+  document.getElementById('hist-filter-bar').style.display = 'flex';
+}
+
+function applyHistoryFilters() {
+  const data = window._histData;
+  if (!data) return;
+
+  const catFilt      = document.getElementById('hist-cat-filter').value;
+  const vendFilt     = document.getElementById('hist-vendor-filter').value;
+  const sortBy       = document.getElementById('hist-sort').value;
+  const shortageOnly = document.getElementById('hist-shortage-only').checked;
+
+  // Build catalog order lookup
+  const catalogOrder = {};
+  (window._activeInventory||[]).forEach(i => { catalogOrder[i.name] = { cat: i.cat_order||0, item: i.item_order||0 }; });
+
+  let filtered = data.filter(r => {
+    if (catFilt  && r.category !== catFilt)  return false;
+    if (vendFilt && r.vendor   !== vendFilt) return false;
+    if (shortageOnly && !(parseFloat(r.shortage) > 0)) return false;
+    return true;
+  });
+
+  // Sort
+  filtered = [...filtered].sort((a, b) => {
+    const dateA = String(a.week_date).substring(0,10);
+    const dateB = String(b.week_date).substring(0,10);
+    if (sortBy === 'week_asc')  return dateA.localeCompare(dateB);
+    if (sortBy === 'week_desc') return dateB.localeCompare(dateA);
+    if (sortBy === 'name')      return a.item_name.localeCompare(b.item_name);
+    if (sortBy === 'shortage')  return (parseFloat(b.shortage)||0) - (parseFloat(a.shortage)||0);
+    if (sortBy === 'order')     return (parseFloat(b.order_cases)||0) - (parseFloat(a.order_cases)||0);
+    // Default: catalog order, then week desc
+    const oa = catalogOrder[a.item_name] || {cat:9999, item:9999};
+    const ob = catalogOrder[b.item_name] || {cat:9999, item:9999};
+    if (oa.cat  !== ob.cat)  return oa.cat  - ob.cat;
+    if (oa.item !== ob.item) return oa.item - ob.item;
+    return dateB.localeCompare(dateA);
+  });
+
+  // Update count
+  document.getElementById('hist-filter-count').textContent =
+    filtered.length < data.length ? `${filtered.length} of ${data.length} records` : `${data.length} records`;
+
+  // Render table
+  renderHistoryTable(filtered);
+}
+
 async function loadHistory() {
   if (SUPABASE_URL==='YOUR_SUPABASE_URL') {
     document.getElementById('history-body').innerHTML=
@@ -1010,7 +1353,7 @@ async function loadHistory() {
   let url = `${SUPABASE_URL}/rest/v1/inventory_counts`
     + `?select=week_date,item_name,category,vendor,par,count_value,shortage,order_cases,price_per_case,line_total,submitted_by`
     + `&week_date=gte.${from}&week_date=lte.${to}`
-    + `&order=week_date.desc,category.asc,item_name.asc&limit=2000`;
+    + `&order=week_date.desc&limit=2000`;
   if (item) url += `&item_name=ilike.*${encodeURIComponent(item)}*`;
 
   document.getElementById('history-body').innerHTML =
@@ -1027,6 +1370,17 @@ async function loadHistory() {
     }
 
     window._histData = data;
+    populateHistoryFilters(data);
+    applyHistoryFilters();
+    return;  // rendering handled by applyHistoryFilters -> renderHistoryTable
+  } catch(e) {
+    document.getElementById('history-body').innerHTML =
+      `<div style="padding:32px;text-align:center;color:var(--red)">Error loading history. Check console.</div>`;
+    console.error(e);
+  }
+}
+
+function renderHistoryTable(data) {
 
     // Calculate rolling 4-week average shortage per item client-side
     // Group by item, sort by date, compute rolling avg
@@ -1087,12 +1441,9 @@ async function loadHistory() {
       <div style="padding:8px 4px;font-size:.75rem;color:var(--muted)">${data.length} records</div>`;
     document.getElementById('history-body').innerHTML = html;
 
-  } catch(e) {
-    document.getElementById('history-body').innerHTML =
-      `<div style="padding:32px;text-align:center;color:var(--red)">Error loading history. Check console.</div>`;
-    console.error(e);
-  }
+
 }
+
 
 function downloadHistory() {
   const data=window._histData;
@@ -1107,8 +1458,15 @@ function downloadHistory() {
 }
 
 function downloadCSV() {
-  const byV={};
-  for(const item of INVENTORY){const oc=orderCases(item);if(!oc)continue;(byV[item.vendor]=byV[item.vendor]||[]).push({...item,oc});}
+  const poSrc     = window._activeInventory || [];
+  const vendorFilt = document.getElementById('po-vendor-filter')?.value || '';
+  const byV = {};
+  for (const item of poSrc) {
+    const oc = orderCases(item);
+    if (!oc) continue;
+    if (vendorFilt && item.vendor !== vendorFilt) continue;
+    (byV[item.vendor]=byV[item.vendor]||[]).push({...item,oc});
+  }
   if(!Object.keys(byV).length){toast('No items to order');return;}
   const week=document.getElementById('week-date').value||'unknown';
   let csv='Vendor,Item,Pack,Unit,PAR,Count,Order Cases,Price/Case,Line Total\n';
@@ -1129,12 +1487,13 @@ let newCatMode  = false;
 
 async function loadCatalog() {
   if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
-    catalogData = INVENTORY.map((item,i) => ({id:i+1,...item,active:true,sort_order:0,units_case:item.units_case||1,sku:SKU_MAP[item.name]||null}));
+    catalogData = (window._activeInventory||[]).map((item,i) => ({id:i+1,...item,active:true}));
     populateVendorFilter(); renderCatalog(); return;
   }
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/catalog?order=sort_order.asc,item_order.asc&limit=1000`,{headers:supaHeaders()});
     catalogData = await res.json();
+    // SKU comes from Supabase catalog table directly
     populateVendorFilter(); renderCatalog();
   } catch(e) {
     document.getElementById('catalog-body').innerHTML='<div style="padding:32px;text-align:center;color:var(--red)">Error loading catalog.</div>';
@@ -1153,22 +1512,45 @@ function renderCatalog() {
   const vendorFilt = document.getElementById('cat-vendor-filter').value;
   const showInact  = document.getElementById('cat-show-inactive').checked;
 
-  const filtered = catalogData.filter(item => {
+  const catFilt2 = document.getElementById('cat-cat-filter').value;
+  const sortBy2  = document.getElementById('cat-sort').value;
+
+  let filtered = catalogData.filter(item => {
     if (!showInact && !item.active) return false;
     if (vendorFilt && item.vendor !== vendorFilt) return false;
+    if (catFilt2 && item.category !== catFilt2) return false;
     if (q && !item.name.toLowerCase().includes(q) &&
              !item.category.toLowerCase().includes(q) &&
              !item.vendor.toLowerCase().includes(q)) return false;
     return true;
   });
 
+  // Populate category filter dropdown
+  const catSel2 = document.getElementById('cat-cat-filter');
+  if (catSel2 && catSel2.options.length <= 1) {
+    const allCats = [...new Set(catalogData.map(i => i.category))].sort();
+    allCats.forEach(c => catSel2.insertAdjacentHTML('beforeend',
+      `<option value="${c}">${c}</option>`));
+  }
+
   if (!filtered.length) {
     document.getElementById('catalog-body').innerHTML='<div style="padding:40px;text-align:center;color:var(--muted)">No items match.</div>';
     return;
   }
 
-  // Sort by sort_order then item_order BEFORE grouping so display order is correct
-  filtered.sort((a,b) => (a.sort_order||0) - (b.sort_order||0) || (a.item_order||0) - (b.item_order||0));
+  // Sort based on selected sort option
+  if (sortBy2 === 'name') {
+    filtered = [...filtered].sort((a,b) => a.name.localeCompare(b.name));
+  } else if (sortBy2 === 'par_desc') {
+    filtered = [...filtered].sort((a,b) => (b.par||0) - (a.par||0));
+  } else if (sortBy2 === 'price_desc') {
+    filtered = [...filtered].sort((a,b) => (b.price||0) - (a.price||0));
+  } else if (sortBy2 === 'vendor') {
+    filtered = [...filtered].sort((a,b) => (a.vendor||'').localeCompare(b.vendor||''));
+  } else {
+    // Default: catalog order (sort_order, item_order)
+    filtered = [...filtered].sort((a,b) => (a.sort_order||0) - (b.sort_order||0) || (a.item_order||0) - (b.item_order||0));
+  }
 
   // Group by category preserving sort_order
   const groups={}, groupOrder=[];
@@ -1207,7 +1589,7 @@ function renderCatalog() {
           <span style="font-size:.72rem;color:var(--muted);margin-left:5px">${item.unit||''}</span>
           ${item.sku ? '<span style="font-size:.65rem;font-weight:700;color:#fff;background:#1a3a5c;border-radius:3px;padding:1px 5px;margin-left:4px;vertical-align:middle;font-family:monospace">' + item.sku + '</span>' : ''}
         </div>
-        <div class="hide-sm" style="font-family:monospace;font-size:.75rem;color:#1a3a5c;font-weight:700">${item.sku||'—'}</div>
+        <div class="hide-sm" style="font-family:monospace;font-size:.75rem;color:#1a3a5c;font-weight:700">${item.sku || '—'}</div>
         <div style="text-align:center;color:var(--navy);font-weight:600">${item.par}</div>
         <div style="font-size:.82rem;color:var(--muted)">${item.vendor||'—'}</div>
         <div class="hide-sm" style="font-size:.8rem;color:var(--muted)">${item.pack||'—'}</div>
@@ -1282,7 +1664,7 @@ function openAddModal() {
   document.getElementById('modal-title').textContent='Add Item';
   document.getElementById('modal-save-btn').textContent='Add Item';
   document.getElementById('modal-save-btn').disabled=false;
-  ['m-name','m-vendor','m-unit','m-pack'].forEach(id=>document.getElementById(id).value='');
+  ['m-name','m-vendor','m-unit','m-pack','m-sku'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('m-par').value=0;
   document.getElementById('m-uc').value=1;
   document.getElementById('m-price').value=0;
@@ -1317,6 +1699,7 @@ function openEditModal(id) {
   document.getElementById('m-pack').value   = item.pack||'';
   document.getElementById('m-price').value  = item.price||0;
   document.getElementById('m-active').checked = item.active!==false;
+  document.getElementById('m-sku').value    = item.sku || '';
   document.getElementById('modal-overlay').style.display='block';
 }
 
@@ -1333,6 +1716,8 @@ function showModalErr(msg) {
   const el=document.getElementById('modal-err');
   el.textContent=msg; el.style.display='block';
 }
+
+
 
 async function saveItem() {
   const name   = document.getElementById('m-name').value.trim();
@@ -1364,6 +1749,7 @@ async function saveItem() {
     units_case: parseFloat(document.getElementById('m-uc').value)||1,
     price: parseFloat(document.getElementById('m-price').value)||0,
     active:document.getElementById('m-active').checked,
+    sku:   document.getElementById('m-sku').value.trim() || autoGenerateSku(cat),
   };
 
   const btn = document.getElementById('modal-save-btn');
@@ -1373,24 +1759,52 @@ async function saveItem() {
     if (editingId) { const idx=catalogData.findIndex(i=>i.id===editingId); if(idx>=0) catalogData[idx]={...catalogData[idx],...payload}; }
     else catalogData.push({id:Date.now(),...payload});
     closeModal(); populateVendorFilter(); renderCatalog();
+    loadCatalogForCount();
     toast(editingId?'Item updated':'Item added'); return;
   }
 
   try {
     let res;
     if (editingId) {
+      // Detect name change — if name changed, cascade rename to inventory_counts
+      const oldItem = catalogData.find(i => i.id === editingId);
+      const oldName = oldItem ? oldItem.name : null;
+      const nameChanged = oldName && oldName !== name;
+
       res = await fetch(`${SUPABASE_URL}/rest/v1/catalog?id=eq.${editingId}`,{
         method:'PATCH', headers:{...supaHeaders(),'Prefer':'return=representation'}, body:JSON.stringify(payload)});
+      if (!res.ok) throw new Error(await res.text());
+      const [saved] = await res.json();
+      const idx=catalogData.findIndex(i=>i.id===editingId);
+      if(idx>=0) catalogData[idx]=saved;
+
+      // Cascade rename to inventory_counts history
+      if (nameChanged) {
+        const renameRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/inventory_counts?item_name=eq.${encodeURIComponent(oldName)}`,
+          { method: 'PATCH',
+            headers: { ...supaHeaders(), 'Prefer': 'return=minimal' },
+            body: JSON.stringify({ item_name: name, sku: saved.sku || null }) }
+        );
+        if (!renameRes.ok) {
+          console.warn('History rename failed:', await renameRes.text());
+          toast('⚠ Item updated but history rename failed — check console');
+        } else {
+          toast(`Item renamed ✓ — history updated from "${oldName}" to "${name}"`);
+        }
+      } else {
+        toast('Item updated ✓');
+      }
     } else {
       res = await fetch(`${SUPABASE_URL}/rest/v1/catalog`,{
         method:'POST', headers:{...supaHeaders(),'Prefer':'return=representation'}, body:JSON.stringify(payload)});
+      if (!res.ok) throw new Error(await res.text());
+      const [saved] = await res.json();
+      catalogData.push(saved);
+      toast('Item added ✓');
     }
-    if (!res.ok) throw new Error(await res.text());
-    const [saved] = await res.json();
-    if (editingId) { const idx=catalogData.findIndex(i=>i.id===editingId); if(idx>=0) catalogData[idx]=saved; }
-    else catalogData.push(saved);
     closeModal(); populateVendorFilter(); renderCatalog();
-    toast(editingId?'Item updated ✓':'Item added ✓');
+    loadCatalogForCount();
   } catch(e) {
     showModalErr('Save failed — '+e.message); console.error(e);
   } finally {
@@ -1474,8 +1888,8 @@ async function loadRecentUsage() {
       for (const itemName of allItems) {
         const curr      = byItem[itemName][currWeek];
         const prev      = byItem[itemName][prevWeek];
-        const invItem   = INVENTORY.find(i => i.name === itemName)
-                       || INVENTORY.find(i => i.name.toLowerCase() === itemName.toLowerCase());
+        const invItem   = (window._activeInventory||[]).find(i => i.name === itemName)
+                       || (window._activeInventory||[]).find(i => i.name.toLowerCase() === itemName.toLowerCase());
         const unitsCase = invItem ? (invItem.units_case || 1) : 1;
         const usage     = prev.count + (prev.orderCases * unitsCase) - curr.count;
         usageForWeek[itemName] = Math.round(usage * 10) / 10;
