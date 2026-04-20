@@ -575,7 +575,7 @@ function showTab(tab) {
   const idx = ['daily','order','history','catalog'].indexOf(tab);
   document.querySelectorAll('#tab-bar button')[idx].classList.add('active');
   if (tab === 'order')   renderOrder();
-  if (tab === 'catalog') renderCatalog();
+  if (tab === 'catalog') loadCatalog();
 }
 
 function updateHeaderDate(dateStr) {
@@ -1143,6 +1143,25 @@ function downloadHistoryCSV() {
 }
 
 // ── Catalog ────────────────────────────────────────────────────────────────────
+async function loadCatalog() {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+    renderCatalog(); return;
+  }
+  try {
+    const res  = await fetch(
+      `${SUPABASE_URL}/rest/v1/bakery_catalog` +
+      `?order=sort_order.asc,item_order.asc&limit=500`,
+      { headers: supaHeaders() }
+    );
+    catalogData = await res.json();
+    renderCatalog();
+  } catch(e) {
+    document.getElementById('catalog-body').innerHTML =
+      '<div style="padding:32px;text-align:center;color:var(--red)">Error loading catalog.</div>';
+    console.error(e);
+  }
+}
+
 function renderCatalog() {
   const q          = (document.getElementById('cat-search')?.value||'').toLowerCase();
   const catFilt    = document.getElementById('cat-cat-filter')?.value||'';
