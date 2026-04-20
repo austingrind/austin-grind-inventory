@@ -571,7 +571,7 @@ function getItemValues(item) {
   const samp    = d.sample_count || 0;
   const thrw    = d.throwaway    || 0;
   const closing = d.closing_inventory !== null && d.closing_inventory !== undefined
-    ? d.closing_inventory : Math.max(open - samp - thrw, 0);
+    ? d.closing_inventory : 0;
   const used    = Math.max(open - closing, 0);
   const autoOrd = item.par > 0 ? Math.max(item.par - closing, 0) : 0;
   const orderVal = d.order_qty !== null && d.order_qty !== undefined ? d.order_qty : autoOrd;
@@ -646,7 +646,7 @@ function renderDailyForm(priorDate) {
         <td style="text-align:center">
           <input class="d-inp ${hasEntry?'filled':''} ${closeLow?'low':''}" type="number" min="0" step="1"
             value="${savedClose}"
-            placeholder="${closing}"
+            placeholder="0"
             data-field="closing_inventory" data-item="${item.id}"
             oninput="onEntryInput(this)" onkeydown="handleKey(event,this)"
             style="${closeLow?'border-color:var(--red)!important':''}">
@@ -705,7 +705,7 @@ function renderDailyForm(priorDate) {
               <div class="field-label">Closing ✏️</div>
               <input class="entry-input ${hasEntry?'filled':''}" type="number" min="0" step="1"
                 inputmode="numeric"
-                value="${savedClose}" placeholder="${closing}"
+                value="${savedClose}" placeholder="0"
                 data-field="closing_inventory" data-item="${item.id}"
                 oninput="onEntryInput(this)"
                 style="${closeLow?'border-color:var(--red)!important':''}">
@@ -772,12 +772,22 @@ function buildInputList() {
 function handleKey(e, input) {
   const idx = inputList.indexOf(input);
   if (idx === -1) return;
+
+  // Count how many editable inputs per row (sample, throwaway, closing, order = 4)
+  const COLS = 4;
   let next = -1;
-  if      (e.key==='Enter'&&!e.shiftKey){e.preventDefault();next=idx+1;}
-  else if (e.key==='Enter'&& e.shiftKey){e.preventDefault();next=idx-1;}
-  else if (e.key==='Tab'  &&!e.shiftKey){e.preventDefault();next=idx+1;}
-  else if (e.key==='Tab'  && e.shiftKey){e.preventDefault();next=idx-1;}
-  if (next>=0&&next<inputList.length) {
+
+  if (e.key === 'ArrowDown' || (e.key === 'Enter' && !e.shiftKey)) {
+    e.preventDefault(); next = idx + COLS;
+  } else if (e.key === 'ArrowUp' || (e.key === 'Enter' && e.shiftKey)) {
+    e.preventDefault(); next = idx - COLS;
+  } else if (e.key === 'ArrowRight' || (e.key === 'Tab' && !e.shiftKey)) {
+    e.preventDefault(); next = idx + 1;
+  } else if (e.key === 'ArrowLeft' || (e.key === 'Tab' && e.shiftKey)) {
+    e.preventDefault(); next = idx - 1;
+  }
+
+  if (next >= 0 && next < inputList.length) {
     inputList[next].focus(); inputList[next].select();
     inputList[next].closest('tr,div')?.scrollIntoView({block:'nearest',behavior:'smooth'});
   }
