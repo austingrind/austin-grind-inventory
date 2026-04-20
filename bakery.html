@@ -277,10 +277,15 @@ header{background:var(--navy);color:#fff;padding:12px 16px;position:sticky;top:0
     <input type="date" id="entry-date" onchange="onDateChange()">
     <span class="progress-pill" id="entry-progress">0 / 0</span>
   </div>
-  <div class="top-bar" style="padding-top:6px;padding-bottom:6px">
+  <div class="top-bar" style="padding-top:6px;padding-bottom:6px;gap:8px">
     <label>Staff:</label>
     <input type="text" id="entry-staff" placeholder="Name (optional)"
-      oninput="localStorage.setItem('bk_staff',this.value)">
+      style="flex:1" oninput="localStorage.setItem('bk_staff',this.value)">
+    <select id="daily-cat-filter" onchange="applyDailyCatFilter()"
+      style="border:1.5px solid var(--border);border-radius:8px;
+             padding:8px 10px;font-size:.85rem;background:var(--card);flex:1;max-width:180px">
+      <option value="">All categories</option>
+    </select>
   </div>
   <div id="daily-body"><div style="padding:40px;text-align:center;color:var(--muted)">Loading…</div></div>
 </div>
@@ -492,12 +497,13 @@ function updateHeaderDate(d) {
   hdr.textContent = lbl;
 }
 function onDateChange() {
-  // Clear all data when date changes so we start fresh
   dailyData = {};
   priorData = {};
   priorOrderData = {};
   historyData = {};
   updateHeaderDate(document.getElementById('entry-date').value);
+  document.getElementById('daily-body').innerHTML =
+    '<div style="padding:40px;text-align:center;color:var(--muted)">Loading…</div>';
   loadCatalogAndDaily();
 }
 
@@ -509,7 +515,7 @@ async function loadCatalogAndDaily() {
   }
   const date = document.getElementById('entry-date').value;
   if (!date) return;
-  const lb = new Date(date+'T12:00:00'); lb.setDate(lb.getDate()-7);
+  const lb = new Date(date+'T12:00:00'); lb.setDate(lb.getDate()-60);
   try {
     const [catRes, todayRes, priorRes] = await Promise.all([
       fetch(`${SUPABASE_URL}/rest/v1/bakery_catalog?active=eq.true&order=sort_order.asc,item_order.asc&limit=200`,
@@ -599,7 +605,7 @@ function renderDailyForm(priorDate) {
   let enteredCount = 0;
   for (const cat of groupOrder) {
     desktopHtml += `<tr class="cat-row"><td colspan="10">${cat}</td></tr>`;
-    mobileHtml  += `<div class="cat-group-hdr"><span>${cat}</span><span style="font-size:.7rem;font-weight:500;opacity:.7">${groups[cat].length} items</span></div>`;
+    // no mobile category headers — using filter dropdown instead
     for (const item of groups[cat]) {
       const {d,prior,amtRec,open,samp,thrw,closing,used,autoOrd,orderVal,isOv,closeLow,hasEntry} = getItemValues(item);
       if (hasEntry) enteredCount++;
@@ -720,9 +726,41 @@ function renderDailyForm(priorDate) {
   document.getElementById('daily-body').innerHTML = mobileHtml + desktopHtml;
   document.getElementById('entry-progress').textContent = `${enteredCount} / ${catalogData.length}`;
   buildInputList();
+  populateDailyCatFilter();
 }
 
 let inputList = [];
+
+function populateDailyCatFilter() {
+  const sel = document.getElementById('daily-cat-filter');
+  if (!sel || sel.options.length > 1) return;
+  const cats = [...new Set(catalogData.map(i => i.category))];
+  cats.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+}
+
+function applyDailyCatFilter() {
+  const cat = document.getElementById('daily-cat-filter').value;
+  // Show/hide item cards (mobile) and desktop rows
+  document.querySelectorAll('.item-card').forEach(card => {
+    const itemId = parseInt(card.getAttribute('data-item-id'));
+    const item = catalogData.find(i => i.id === itemId);
+    card.style.display = (!cat || item?.category === cat) ? '' : 'none';
+  });
+  document.querySelectorAll('.desktop-table tbody tr').forEach(row => {
+    if (row.classList.contains('cat-row')) {
+      // Show/hide category header rows
+      const rowCat = row.querySelector('td')?.textContent?.trim();
+      row.style.display = (!cat || rowCat === cat) ? '' : 'none';
+    } else {
+      const itemId = parseInt(row.getAttribute('data-item-id'));
+      if (itemId) {
+        const item = catalogData.find(i => i.id === itemId);
+        row.style.display = (!cat || item?.category === cat) ? '' : 'none';
+      }
+    }
+  });
+}
+
 function buildInputList() {
   inputList = Array.from(document.querySelectorAll('.d-inp:not(.order), .entry-input:not(.order-input)'));
 }
