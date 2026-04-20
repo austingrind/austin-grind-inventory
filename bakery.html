@@ -285,8 +285,7 @@ header{background:var(--navy);color:#fff;padding:12px 16px;position:sticky;top:0
     <input type="text" id="entry-staff" placeholder="Name (optional)"
       style="flex:1" oninput="localStorage.setItem('bk_staff',this.value)">
     <select id="daily-cat-filter" onchange="applyDailyCatFilter()"
-      style="border:1.5px solid var(--border);border-radius:8px;
-             padding:8px 10px;font-size:.85rem;background:var(--card);flex:1;max-width:180px">
+      style="border:1.5px solid var(--border);border-radius:8px; padding:8px 10px;font-size:.85rem;background:var(--card);flex:1;max-width:180px">
       <option value="">All categories</option>
     </select>
   </div>
@@ -296,8 +295,7 @@ header{background:var(--navy);color:#fff;padding:12px 16px;position:sticky;top:0
 <div class="panel" id="panel-order">
   <div class="btn-row">
     <select id="order-vendor-filter" onchange="renderOrder()"
-      style="border:1.5px solid var(--border);border-radius:var(--radius);
-             padding:8px 12px;font-size:.9rem;background:var(--card);min-width:160px">
+      style="border:1.5px solid var(--border);border-radius:var(--radius); padding:8px 12px;font-size:.9rem;background:var(--card);min-width:160px">
       <option value="">All vendors</option>
     </select>
     <button class="btn btn-primary" onclick="printFilteredOrders()">🖨 Print</button>
@@ -305,7 +303,149 @@ header{background:var(--navy);color:#fff;padding:12px 16px;position:sticky;top:0
     <button class="btn btn-warning" onclick="pdfFilteredOrders()">📄 PDF</button>
     <span id="order-date-label" style="font-size:.8rem;color:var(--muted);align-self:center"></span>
   </div>
-  <div id="order-body"><div class="no-order">Save today's counts first, then view the order.</div></div>\n</div>\n\n<div class="panel" id="panel-history">\n  <div class="filter-bar">\n    <label>From:</label><input type="date" id="hist-from">\n    <label>To:</label><input type="date" id="hist-to">\n  </div>\n  <div class="filter-bar">\n    <label>Item:</label>\n    <input type="text" id="hist-item" placeholder="All items">\n    <button class="btn btn-primary btn-sm" onclick="loadHistory()">Load</button>\n    <button class="btn btn-sm" style="background:#555;color:#fff" onclick="downloadHistoryCSV()">⬇ CSV</button>\n  </div>\n  <div id="history-body"><div style="padding:32px;text-align:center;color:var(--muted)">Set a date range and click Load.</div></div>\n</div>\n\n<div class="panel" id="panel-catalog">\n  <div class="btn-row">\n    <button class="btn btn-success btn-sm" onclick="openAddModal()">+ Add Item</button>\n    <input type="text" id="cat-search" placeholder="Search…"\n      style="flex:1;min-width:120px;border:1.5px solid var(--border);border-radius:var(--radius);\n             padding:8px 12px;font-size:.9rem;background:var(--card);box-shadow:var(--shadow)"\n      oninput="renderCatalog()">\n    <select id="cat-cat-filter"\n      style="border:1.5px solid var(--border);border-radius:var(--radius);\n             padding:8px 10px;font-size:.85rem;background:var(--card)"\n      onchange="renderCatalog()">\n      <option value="">All categories</option>\n    </select>\n    <label style="display:flex;align-items:center;gap:5px;font-size:.82rem;\n      font-weight:600;color:var(--navy);white-space:nowrap;cursor:pointer">\n      <input type="checkbox" id="cat-show-inactive" onchange="renderCatalog()"> Inactive\n    </label>\n  </div>\n  <div id="catalog-body"><div style="padding:32px;text-align:center;color:var(--muted)">Loading catalog…</div></div>\n</div>\n\n<div id="modal-overlay">\n  <div class="modal-card">\n    <div class="modal-hdr">\n      <span id="modal-title">Add Item</span>\n      <button onclick="closeModal()">×</button>\n    </div>\n    <div class="modal-body">\n      <div class="modal-grid">\n        <div class="full-col">\n          <label class="modal-lbl">Item Name *</label>\n          <input id="m-name" class="modal-inp" type="text">\n        </div>\n        <div class="full-col">\n          <label class="modal-lbl">Category *</label>\n          <select id="m-cat" class="modal-inp">\n            <option value="">— select —</option>\n            <option>Pastries</option><option>Bagels</option><option>Dairy</option>\n            <option>Cookies</option><option>Brownies</option>\n            <option>Cheese</option><option>Meats</option>\n          </select>\n        </div>\n        <div>\n          <label class="modal-lbl">Vendor</label>\n          <input id="m-vendor" class="modal-inp" type="text">\n        </div>\n        <div>\n          <label class="modal-lbl">SKU</label>\n          <input id="m-sku" class="modal-inp" type="text" style="font-family:monospace">\n        </div>\n        <div>\n          <label class="modal-lbl">PAR</label>\n          <input id="m-par" class="modal-inp" type="number" min="0" step="1" placeholder="0">\n        </div>\n        <div>\n          <label class="modal-lbl">Price ($)</label>\n          <input id="m-price" class="modal-inp" type="number" min="0" step="0.01" placeholder="0.00">\n        </div>\n        <div class="full-col">\n          <label class="modal-lbl">Packaging</label>\n          <input id="m-packaging" class="modal-inp" type="text" placeholder="e.g. Each, Box">\n        </div>\n        <div class="full-col" style="display:flex;align-items:center;gap:8px">\n          <input id="m-active" type="checkbox" checked style="width:18px;height:18px;cursor:pointer">\n          <label for="m-active" style="font-size:.88rem;font-weight:600;cursor:pointer">Active — appears in daily entry</label>\n        </div>\n      </div>\n      <div id="modal-err" class="modal-err"></div>\n      <div class="modal-footer">\n        <button onclick="closeModal()" class="btn btn-sm" style="background:#eee;color:#333">Cancel</button>\n        <button onclick="saveItem()" class="btn btn-primary btn-sm" id="modal-save-btn">Save Item</button>\n      </div>\n    </div>\n  </div>\n</div>\n\n<!-- SETTINGS -->\n<div class="panel" id="panel-settings">\n  <div class="card" style="padding:18px;margin-bottom:12px">\n    <div class="card-hdr" style="margin:-18px -18px 16px;border-radius:var(--radius) var(--radius) 0 0">\n      Email Settings\n    </div>\n    <div style="display:grid;gap:12px">\n      <div>\n        <label class="modal-lbl">Test Mode</label>\n        <div style="display:flex;align-items:center;gap:10px;margin-top:4px">\n          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9rem;font-weight:600">\n            <input type="checkbox" id="test-mode" style="width:18px;height:18px"\n              onchange="saveSettings()">\n            Send to test email instead of vendor\n          </label>\n        </div>\n        <div style="font-size:.75rem;color:var(--muted);margin-top:4px">\n          When enabled, all orders go to the test email address below regardless of vendor\n        </div>\n      </div>\n      <div>\n        <label class="modal-lbl">Test Email Address</label>\n        <input id="test-email" class="modal-inp" type="email"\n          placeholder="e.g. manager@austingrind.com"\n          oninput="saveSettings()">\n      </div>\n    </div>\n  </div>\n\n  <div class="card" style="padding:18px;margin-bottom:12px">\n    <div class="card-hdr" style="margin:-18px -18px 16px;border-radius:var(--radius) var(--radius) 0 0">\n      Vendor Email Addresses\n    </div>\n    <div id="vendor-email-list" style="display:grid;gap:10px">\n      Loading…\n    </div>\n    <button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="saveSettings()">\n      💾 Save Settings\n    </button>\n  </div>\n\n  <div class="card" style="padding:18px">\n    <div class="card-hdr" style="margin:-18px -18px 16px;border-radius:var(--radius) var(--radius) 0 0">\n      CC Address\n    </div>\n    <div style="display:grid;gap:12px">\n      <div>\n        <label class="modal-lbl">Always CC</label>\n        <input id="settings-cc" class="modal-inp" type="email"\n          placeholder="e.g. lara@austingrind.com"\n          oninput="saveSettings()">\n        <div style="font-size:.75rem;color:var(--muted);margin-top:4px">\n          This address is CC'd on every order email
+  <div id="order-body"><div class="no-order">Save today's counts first, then view the order.</div></div>
+</div>
+
+<div class="panel" id="panel-history">
+  <div class="filter-bar">
+    <label>From:</label><input type="date" id="hist-from">
+    <label>To:</label><input type="date" id="hist-to">
+  </div>
+  <div class="filter-bar">
+    <label>Item:</label>
+    <input type="text" id="hist-item" placeholder="All items">
+    <button class="btn btn-primary btn-sm" onclick="loadHistory()">Load</button>
+    <button class="btn btn-sm" style="background:#555;color:#fff" onclick="downloadHistoryCSV()">⬇ CSV</button>
+  </div>
+  <div id="history-body"><div style="padding:32px;text-align:center;color:var(--muted)">Set a date range and click Load.</div></div>
+</div>
+
+<div class="panel" id="panel-catalog">
+  <div class="btn-row">
+    <button class="btn btn-success btn-sm" onclick="openAddModal()">+ Add Item</button>
+    <input type="text" id="cat-search" placeholder="Search…"
+      style="flex:1;min-width:120px;border:1.5px solid var(--border);border-radius:var(--radius); padding:8px 12px;font-size:.9rem;background:var(--card);box-shadow:var(--shadow)"
+      oninput="renderCatalog()">
+    <select id="cat-cat-filter"
+      style="border:1.5px solid var(--border);border-radius:var(--radius); padding:8px 10px;font-size:.85rem;background:var(--card)"
+      onchange="renderCatalog()">
+      <option value="">All categories</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:5px;font-size:.82rem; font-weight:600;color:var(--navy);white-space:nowrap;cursor:pointer">
+      <input type="checkbox" id="cat-show-inactive" onchange="renderCatalog()"> Inactive
+    </label>
+  </div>
+  <div id="catalog-body"><div style="padding:32px;text-align:center;color:var(--muted)">Loading catalog…</div></div>
+</div>
+
+<div id="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-hdr">
+      <span id="modal-title">Add Item</span>
+      <button onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-grid">
+        <div class="full-col">
+          <label class="modal-lbl">Item Name *</label>
+          <input id="m-name" class="modal-inp" type="text">
+        </div>
+        <div class="full-col">
+          <label class="modal-lbl">Category *</label>
+          <select id="m-cat" class="modal-inp">
+            <option value="">— select —</option>
+            <option>Pastries</option><option>Bagels</option><option>Dairy</option>
+            <option>Cookies</option><option>Brownies</option>
+            <option>Cheese</option><option>Meats</option>
+          </select>
+        </div>
+        <div>
+          <label class="modal-lbl">Vendor</label>
+          <input id="m-vendor" class="modal-inp" type="text">
+        </div>
+        <div>
+          <label class="modal-lbl">SKU</label>
+          <input id="m-sku" class="modal-inp" type="text" style="font-family:monospace">
+        </div>
+        <div>
+          <label class="modal-lbl">PAR</label>
+          <input id="m-par" class="modal-inp" type="number" min="0" step="1" placeholder="0">
+        </div>
+        <div>
+          <label class="modal-lbl">Price ($)</label>
+          <input id="m-price" class="modal-inp" type="number" min="0" step="0.01" placeholder="0.00">
+        </div>
+        <div class="full-col">
+          <label class="modal-lbl">Packaging</label>
+          <input id="m-packaging" class="modal-inp" type="text" placeholder="e.g. Each, Box">
+        </div>
+        <div class="full-col" style="display:flex;align-items:center;gap:8px">
+          <input id="m-active" type="checkbox" checked style="width:18px;height:18px;cursor:pointer">
+          <label for="m-active" style="font-size:.88rem;font-weight:600;cursor:pointer">Active — appears in daily entry</label>
+        </div>
+      </div>
+      <div id="modal-err" class="modal-err"></div>
+      <div class="modal-footer">
+        <button onclick="closeModal()" class="btn btn-sm" style="background:#eee;color:#333">Cancel</button>
+        <button onclick="saveItem()" class="btn btn-primary btn-sm" id="modal-save-btn">Save Item</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div class="panel" id="panel-settings">
+  <div class="card" style="padding:18px;margin-bottom:12px">
+    <div class="card-hdr" style="margin:-18px -18px 16px;border-radius:var(--radius) var(--radius) 0 0">
+      Email Settings
+    </div>
+    <div style="display:grid;gap:12px">
+      <div>
+        <label class="modal-lbl">Test Mode</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9rem;font-weight:600">
+            <input type="checkbox" id="test-mode" style="width:18px;height:18px"
+              onchange="saveSettings()">
+            Send to test email instead of vendor
+          </label>
+        </div>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:4px">
+          When enabled, all orders go to the test email address below regardless of vendor
+        </div>
+      </div>
+      <div>
+        <label class="modal-lbl">Test Email Address</label>
+        <input id="test-email" class="modal-inp" type="email"
+          placeholder="e.g. manager@austingrind.com"
+          oninput="saveSettings()">
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="padding:18px;margin-bottom:12px">
+    <div class="card-hdr" style="margin:-18px -18px 16px;border-radius:var(--radius) var(--radius) 0 0">
+      Vendor Email Addresses
+    </div>
+    <div id="vendor-email-list" style="display:grid;gap:10px">
+      Loading…
+    </div>
+    <button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="saveSettings()">
+      💾 Save Settings
+    </button>
+  </div>
+
+  <div class="card" style="padding:18px">
+    <div class="card-hdr" style="margin:-18px -18px 16px;border-radius:var(--radius) var(--radius) 0 0">
+      CC Address
+    </div>
+    <div style="display:grid;gap:12px">
+      <div>
+        <label class="modal-lbl">Always CC</label>
+        <input id="settings-cc" class="modal-inp" type="email"
+          placeholder="e.g. lara@austingrind.com"
+          oninput="saveSettings()">
+        <div style="font-size:.75rem;color:var(--muted);margin-top:4px">
+          This address is CC'd on every order email
         </div>
       </div>
     </div>
