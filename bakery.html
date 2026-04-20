@@ -532,15 +532,19 @@ async function loadCatalogAndDaily() {
     priorData = {}; priorOrderData = {}; historyData = {};
     const priorDate = priorRecords.length ? priorRecords[0].record_date.substring(0,10) : null;
     for (const r of priorRecords) {
-      if (priorData[r.item_id] === undefined) priorData[r.item_id] = r.closing_inventory ?? 0;
+      const rid = parseInt(r.item_id);
+      if (priorData[rid] === undefined) priorData[rid] = parseFloat(r.closing_inventory) || 0;
       if (priorDate && r.record_date.substring(0,10)===priorDate) {
-        historyData[r.item_id] = r;
-        if ((r.order_qty ?? 0) > 0) priorOrderData[r.item_id] = r.order_qty;
+        historyData[rid] = r;
+        if ((r.order_qty ?? 0) > 0) priorOrderData[rid] = parseFloat(r.order_qty) || 0;
       }
     }
+    console.log('Prior date:', priorDate, '| Prior records:', priorRecords.length,
+      '| priorData keys:', Object.keys(priorData).length,
+      '| sample:', JSON.stringify(Object.entries(priorData).slice(0,3)));
     dailyData = {};
     for (const r of todayRecords) {
-      dailyData[r.item_id] = {
+      dailyData[parseInt(r.item_id)] = {
         id: r.id,
         amt_received:  r.amt_received  ?? null,
         sample_count:  r.sample_count  ?? 0,
@@ -558,10 +562,11 @@ async function loadCatalogAndDaily() {
 }
 
 function getItemValues(item) {
-  const d = dailyData[item.id] || {};
-  const prior  = priorData[item.id] ?? 0;
+  const id = parseInt(item.id);
+  const d = dailyData[id] || {};
+  const prior  = priorData[id] ?? 0;
   const amtRec = d.amt_received !== null && d.amt_received !== undefined
-    ? d.amt_received : (priorOrderData[item.id] ?? 0);
+    ? d.amt_received : (priorOrderData[id] ?? 0);
   const open    = prior + amtRec;
   const samp    = d.sample_count || 0;
   const thrw    = d.throwaway    || 0;
@@ -572,7 +577,7 @@ function getItemValues(item) {
   const orderVal = d.order_qty !== null && d.order_qty !== undefined ? d.order_qty : autoOrd;
   const isOv     = d.order_qty !== null && d.order_qty !== undefined && d.order_qty !== autoOrd;
   const closeLow = closing < item.par && item.par > 0;
-  const hasEntry = dailyData[item.id] !== undefined;
+  const hasEntry = dailyData[id] !== undefined;
   return {d, prior, amtRec, open, samp, thrw, closing, used, autoOrd, orderVal, isOv, closeLow, hasEntry};
 }
 
