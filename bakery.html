@@ -189,12 +189,14 @@ header{background:var(--navy);color:#fff;padding:12px 16px;position:sticky;top:0
 .progress-pill{background:rgba(255,255,255,.15);border-radius:12px;
   padding:3px 10px;font-size:.72rem;font-weight:700;color:#fff;white-space:nowrap}
 @media print {
-  header,.tabs,.save-bar,.top-bar,.filter-bar,
+  header,.tabs,.save-bar,.top-bar,.filter-bar,.btn-row,
   #login-screen,#modal-overlay,#toast,
-  #panel-daily,#panel-history,#panel-catalog{display:none!important}
+  #panel-daily,#panel-history,#panel-catalog,#panel-settings{display:none!important}
   #panel-order{display:block!important;padding:0}
-  body{background:#fff}
-  .order-card{box-shadow:none}
+  .panel.active:not(#panel-order){display:none!important}
+  body{background:#fff;margin:0}
+  .order-card{box-shadow:none;margin-bottom:12px}
+  .order-hdr button{display:none!important}
 }
 @media (min-width:700px) {
   .item-card{display:none}
@@ -511,18 +513,7 @@ function renderDailyForm(priorDate) {
 
   let mobileHtml = '', desktopHtml = '';
 
-  desktopHtml += `<table class="desktop-table"><thead><tr>
-    <th style="text-align:left">Item</th>
-    <th>PAR</th>
-    <th>Prior<br><span style="font-weight:400;opacity:.8;font-size:.6rem">${priorLbl}</span></th>
-    <th>Amt Rec'd</th>
-    <th>Opening</th>
-    <th>Sample</th>
-    <th>Throwaway</th>
-    <th>Closing ✏️</th>
-    <th>Used</th>
-    <th style="background:#1a4a2c">Order</th>
-  </tr></thead><tbody>`;
+  desktopHtml += `<table class="desktop-table"><thead><tr> <th style="text-align:left">Item</th> <th>PAR</th> <th>Prior<br><span style="font-weight:400;opacity:.8;font-size:.6rem">${priorLbl}</span></th> <th>Amt Rec'd</th> <th>Opening</th> <th>Sample</th> <th>Throwaway</th> <th>Closing ✏️</th> <th>Used</th> <th style="background:#1a4a2c">Order</th> </tr></thead><tbody>`;
 
   let enteredCount = 0;
   for (const cat of groupOrder) {
@@ -533,110 +524,9 @@ function renderDailyForm(priorDate) {
       if (hasEntry) enteredCount++;
       const savedClose = d.closing_inventory !== null && d.closing_inventory !== undefined ? d.closing_inventory : '';
 
-      desktopHtml += `<tr data-item-id="${item.id}">
-        <td>
-          <div style="font-weight:600;font-size:.83rem">${item.name}</div>
-          ${item.sku?'<div style="font-size:.65rem;color:var(--muted);font-family:monospace">'+item.sku+'</div>':''}
-        </td>
-        <td class="ro" style="font-weight:700;color:var(--navy)">${item.par||'—'}</td>
-        <td class="ro">${prior}</td>
-        <td style="text-align:center">
-          <input class="d-inp ${amtRec>0||hasEntry?'filled':''}" type="number" min="0" step="1"
-            value="${amtRec||''}" placeholder="0"
-            data-field="amt_received" data-item="${item.id}"
-            oninput="onEntryInput(this)" onkeydown="handleKey(event,this)"
-            title="Default: prior day order qty">
-        </td>
-        <td class="calc">${open}</td>
-        <td style="text-align:center">
-          <input class="d-inp ${samp?'filled':''}" type="number" min="0" step="1"
-            value="${samp||''}" placeholder="0"
-            data-field="sample_count" data-item="${item.id}"
-            oninput="onEntryInput(this)" onkeydown="handleKey(event,this)">
-        </td>
-        <td style="text-align:center">
-          <input class="d-inp ${thrw?'filled':''}" type="number" min="0" step="1"
-            value="${thrw||''}" placeholder="0"
-            data-field="throwaway" data-item="${item.id}"
-            oninput="onEntryInput(this)" onkeydown="handleKey(event,this)">
-        </td>
-        <td style="text-align:center">
-          <input class="d-inp ${hasEntry?'filled':''} ${closeLow?'low':''}" type="number" min="0" step="1"
-            value="${savedClose}"
-            placeholder="${closing}"
-            data-field="closing_inventory" data-item="${item.id}"
-            oninput="onEntryInput(this)" onkeydown="handleKey(event,this)"
-            style="${closeLow?'border-color:var(--red)!important':''}">
-        </td>
-        <td class="calc used" id="used-${item.id}">${used}</td>
-        <td style="text-align:center">
-          <input class="d-inp order ${isOv?'ov':''}" type="number" min="0" step="1"
-            value="${orderVal||''}" placeholder="${autoOrd||'0'}"
-            data-field="order_qty" data-item="${item.id}" data-auto="${autoOrd}"
-            oninput="onOrderInput(this)" onkeydown="handleKey(event,this)">
-        </td>
-      </tr>`;
+      desktopHtml += `<tr data-item-id="${item.id}"> <td> <div style="font-weight:600;font-size:.83rem">${item.name}</div> ${item.sku?'<div style="font-size:.65rem;color:var(--muted);font-family:monospace">'+item.sku+'</div>':''} </td> <td class="ro" style="font-weight:700;color:var(--navy)">${item.par||'—'}</td> <td class="ro">${prior}</td> <td style="text-align:center"> <input class="d-inp ${amtRec>0||hasEntry?'filled':''}" type="number" min="0" step="1" value="${amtRec||''}" placeholder="0" data-field="amt_received" data-item="${item.id}" oninput="onEntryInput(this)" onkeydown="handleKey(event,this)" title="Default: prior day order qty"> </td> <td class="calc">${open}</td> <td style="text-align:center"> <input class="d-inp ${samp?'filled':''}" type="number" min="0" step="1" value="${samp||''}" placeholder="0" data-field="sample_count" data-item="${item.id}" oninput="onEntryInput(this)" onkeydown="handleKey(event,this)"> </td> <td style="text-align:center"> <input class="d-inp ${thrw?'filled':''}" type="number" min="0" step="1" value="${thrw||''}" placeholder="0" data-field="throwaway" data-item="${item.id}" oninput="onEntryInput(this)" onkeydown="handleKey(event,this)"> </td> <td style="text-align:center"> <input class="d-inp ${hasEntry?'filled':''} ${closeLow?'low':''}" type="number" min="0" step="1" value="${savedClose}" placeholder="${closing}" data-field="closing_inventory" data-item="${item.id}" oninput="onEntryInput(this)" onkeydown="handleKey(event,this)" style="${closeLow?'border-color:var(--red)!important':''}"> </td> <td class="calc used" id="used-${item.id}">${used}</td> <td style="text-align:center"> <input class="d-inp order ${isOv?'ov':''}" type="number" min="0" step="1" value="${orderVal||''}" placeholder="${autoOrd||'0'}" data-field="order_qty" data-item="${item.id}" data-auto="${autoOrd}" oninput="onOrderInput(this)" onkeydown="handleKey(event,this)"> </td> </tr>`;
 
-      mobileHtml += `<div class="item-card" data-item-id="${item.id}">
-        <div class="item-card-hdr">
-          <div>
-            <div class="item-card-name">${item.name}</div>
-            ${item.sku?'<div class="item-card-sku">'+item.sku+'</div>':''}
-          </div>
-          <div class="item-card-par">PAR: ${item.par||'—'}</div>
-        </div>
-        <div class="item-card-body">
-          <div class="field-grid">
-            <div class="field-group">
-              <div class="field-label">Prior (${priorLbl})</div>
-              <div class="field-value">${prior}</div>
-            </div>
-            <div class="field-group">
-              <div class="field-label">Amt Received</div>
-              <div class="field-value" style="color:var(--navy)">${amtRec}</div>
-            </div>
-            <div class="field-group">
-              <div class="field-label">Opening Inv</div>
-              <div class="field-value">${open}</div>
-            </div>
-            <div class="field-group">
-              <div class="field-label">Sample</div>
-              <input class="entry-input ${samp?'filled':''}" type="number" min="0" step="1"
-                inputmode="numeric" value="${samp||''}" placeholder="0"
-                data-field="sample_count" data-item="${item.id}"
-                oninput="onEntryInput(this)">
-            </div>
-            <div class="field-group">
-              <div class="field-label">Throwaway</div>
-              <input class="entry-input ${thrw?'filled':''}" type="number" min="0" step="1"
-                inputmode="numeric" value="${thrw||''}" placeholder="0"
-                data-field="throwaway" data-item="${item.id}"
-                oninput="onEntryInput(this)">
-            </div>
-            <div class="field-group">
-              <div class="field-label">Closing ✏️</div>
-              <input class="entry-input ${hasEntry?'filled':''}" type="number" min="0" step="1"
-                inputmode="numeric"
-                value="${savedClose}" placeholder="${closing}"
-                data-field="closing_inventory" data-item="${item.id}"
-                oninput="onEntryInput(this)"
-                style="${closeLow?'border-color:var(--red)!important':''}">
-            </div>
-            <div class="field-group">
-              <div class="field-label">Amt Used</div>
-              <div class="field-value used" id="used-m-${item.id}">${used}</div>
-            </div>
-            <div class="field-group">
-              <div class="field-label" style="color:var(--green)">Order</div>
-              <input class="entry-input order-input ${isOv?'order-overridden':''}" type="number" min="0" step="1"
-                inputmode="numeric"
-                value="${orderVal||''}" placeholder="${autoOrd||'0'}"
-                data-field="order_qty" data-item="${item.id}" data-auto="${autoOrd}"
-                oninput="onOrderInput(this)">
-            </div>
-          </div>
-        </div>
-      </div>`;
+      mobileHtml += `<div class="item-card" data-item-id="${item.id}"> <div class="item-card-hdr"> <div> <div class="item-card-name">${item.name}</div> ${item.sku?'<div class="item-card-sku">'+item.sku+'</div>':''} </div> <div class="item-card-par">PAR: ${item.par||'—'}</div> </div> <div class="item-card-body"> <div class="field-grid"> <div class="field-group"> <div class="field-label">Prior (${priorLbl})</div> <div class="field-value">${prior}</div> </div> <div class="field-group"> <div class="field-label">Amt Received</div> <div class="field-value" style="color:var(--navy)">${amtRec}</div> </div> <div class="field-group"> <div class="field-label">Opening Inv</div> <div class="field-value">${open}</div> </div> <div class="field-group"> <div class="field-label">Sample</div> <input class="entry-input ${samp?'filled':''}" type="number" min="0" step="1" inputmode="numeric" value="${samp||''}" placeholder="0" data-field="sample_count" data-item="${item.id}" oninput="onEntryInput(this)"> </div> <div class="field-group"> <div class="field-label">Throwaway</div> <input class="entry-input ${thrw?'filled':''}" type="number" min="0" step="1" inputmode="numeric" value="${thrw||''}" placeholder="0" data-field="throwaway" data-item="${item.id}" oninput="onEntryInput(this)"> </div> <div class="field-group"> <div class="field-label">Closing ✏️</div> <input class="entry-input ${hasEntry?'filled':''}" type="number" min="0" step="1" inputmode="numeric" value="${savedClose}" placeholder="${closing}" data-field="closing_inventory" data-item="${item.id}" oninput="onEntryInput(this)" style="${closeLow?'border-color:var(--red)!important':''}"> </div> <div class="field-group"> <div class="field-label">Amt Used</div> <div class="field-value used" id="used-m-${item.id}">${used}</div> </div> <div class="field-group"> <div class="field-label" style="color:var(--green)">Order</div> <input class="entry-input order-input ${isOv?'order-overridden':''}" type="number" min="0" step="1" inputmode="numeric" value="${orderVal||''}" placeholder="${autoOrd||'0'}" data-field="order_qty" data-item="${item.id}" data-auto="${autoOrd}" oninput="onOrderInput(this)"> </div> </div> </div> </div>`;
     }
   }
   desktopHtml += '</tbody></table>';
@@ -820,25 +710,10 @@ function renderOrder() {
   let html='';
   for (const [v,items] of Object.entries(byVendor).sort()) {
     const total = items.reduce((s,i)=>s+(i.price>0?i.qty*i.price:0),0);
-    html += `<div class="order-card"><div class="order-hdr">
-      <span>📦 ${v}</span><span>${items.length} item${items.length>1?'s':''}</span></div>
-      <div class="table-wrap"><table class="order-table"><thead><tr>
-        <th>Item</th><th style="text-align:center">Closing</th>
-        <th style="text-align:center">PAR</th>
-        <th style="text-align:center">Qty</th>
-        <th style="text-align:right">Price</th>
-        <th style="text-align:right">Total</th>
-      </tr></thead><tbody>`;
+    html += `<div class="order-card"><div class="order-hdr"> <span>📦 ${v}</span><span>${items.length} item${items.length>1?'s':''}</span></div> <div class="table-wrap"><table class="order-table"><thead><tr> <th>Item</th><th style="text-align:center">Closing</th> <th style="text-align:center">PAR</th> <th style="text-align:center">Qty</th> <th style="text-align:right">Price</th> <th style="text-align:right">Total</th> </tr></thead><tbody>`;
     for (const item of items) {
       const lt = item.price>0?'$'+(item.qty*item.price).toFixed(2):'—';
-      html+=`<tr>
-        <td><strong>${item.name}</strong>${item.sku?'<br><span style="font-size:.68rem;color:#999;font-family:monospace">'+item.sku+'</span>':''}</td>
-        <td style="text-align:center;color:var(--red)">${item.closing}</td>
-        <td style="text-align:center">${item.par}</td>
-        <td style="text-align:center;font-weight:700;color:${item.isOv?'var(--orange)':'var(--navy)'}">
-          ${item.qty}${item.isOv?'<span style="font-size:.65rem;opacity:.7"> (manual)</span>':''}</td>
-        <td style="text-align:right">${item.price>0?'$'+parseFloat(item.price).toFixed(2):'—'}</td>
-        <td style="text-align:right;font-weight:600">${lt}</td></tr>`;
+      html+=`<tr> <td><strong>${item.name}</strong>${item.sku?'<br><span style="font-size:.68rem;color:#999;font-family:monospace">'+item.sku+'</span>':''}</td> <td style="text-align:center;color:var(--red)">${item.closing}</td> <td style="text-align:center">${item.par}</td> <td style="text-align:center;font-weight:700;color:${item.isOv?'var(--orange)':'var(--navy)'}"> ${item.qty}${item.isOv?'<span style="font-size:.65rem;opacity:.7"> (manual)</span>':''}</td> <td style="text-align:right">${item.price>0?'$'+parseFloat(item.price).toFixed(2):'—'}</td> <td style="text-align:right;font-weight:600">${lt}</td></tr>`;
     }
     html+='</tbody></table></div>';
     if (total>0) html+=`<div style="background:var(--navy);color:#fff;padding:10px 16px;display:flex;justify-content:space-between;font-weight:700"><span>Estimated Total</span><span>$${total.toFixed(2)}</span></div>`;
@@ -895,33 +770,9 @@ async function loadHistory() {
       return;
     }
     window._histData=data;
-    let html=`<div class="table-wrap"><table class="hist-table"><thead><tr>
-      <th>Date</th><th>Item</th><th>Category</th>
-      <th style="text-align:center">Prior</th>
-      <th style="text-align:center">Received</th>
-      <th style="text-align:center">Opening</th>
-      <th style="text-align:center">Sample</th>
-      <th style="text-align:center">Throwaway</th>
-      <th style="text-align:center">Closing</th>
-      <th style="text-align:center">Used</th>
-      <th style="text-align:center">Order</th>
-      <th>Staff</th>
-    </tr></thead><tbody>`;
+    let html=`<div class="table-wrap"><table class="hist-table"><thead><tr> <th>Date</th><th>Item</th><th>Category</th> <th style="text-align:center">Prior</th> <th style="text-align:center">Received</th> <th style="text-align:center">Opening</th> <th style="text-align:center">Sample</th> <th style="text-align:center">Throwaway</th> <th style="text-align:center">Closing</th> <th style="text-align:center">Used</th> <th style="text-align:center">Order</th> <th>Staff</th> </tr></thead><tbody>`;
     for (const r of data) {
-      html+=`<tr>
-        <td>${String(r.record_date).substring(0,10)}</td>
-        <td><strong>${r.item_name}</strong></td>
-        <td style="font-size:.72rem;color:var(--muted)">${r.category||''}</td>
-        <td style="text-align:center">${r.prior_inventory??0}</td>
-        <td style="text-align:center">${r.amt_received??0}</td>
-        <td style="text-align:center;font-weight:600">${r.opening_inventory??0}</td>
-        <td style="text-align:center">${r.sample_count??0}</td>
-        <td style="text-align:center">${r.throwaway??0}</td>
-        <td style="text-align:center;font-weight:700;color:var(--navy)">${r.closing_inventory??0}</td>
-        <td style="text-align:center;color:var(--orange);font-weight:600">${r.amt_used??0}</td>
-        <td style="text-align:center;color:var(--green);font-weight:700">${r.order_qty??0}</td>
-        <td style="font-size:.72rem;color:var(--muted)">${r.submitted_by||'—'}</td>
-      </tr>`;
+      html+=`<tr> <td>${String(r.record_date).substring(0,10)}</td> <td><strong>${r.item_name}</strong></td> <td style="font-size:.72rem;color:var(--muted)">${r.category||''}</td> <td style="text-align:center">${r.prior_inventory??0}</td> <td style="text-align:center">${r.amt_received??0}</td> <td style="text-align:center;font-weight:600">${r.opening_inventory??0}</td> <td style="text-align:center">${r.sample_count??0}</td> <td style="text-align:center">${r.throwaway??0}</td> <td style="text-align:center;font-weight:700;color:var(--navy)">${r.closing_inventory??0}</td> <td style="text-align:center;color:var(--orange);font-weight:600">${r.amt_used??0}</td> <td style="text-align:center;color:var(--green);font-weight:700">${r.order_qty??0}</td> <td style="font-size:.72rem;color:var(--muted)">${r.submitted_by||'—'}</td> </tr>`;
     }
     html+=`</tbody></table></div><div style="padding:8px 4px;font-size:.75rem;color:var(--muted)">${data.length} records</div>`;
     document.getElementById('history-body').innerHTML=html;
@@ -984,33 +835,14 @@ function renderCatalog() {
     groups[item.category].push(item);
   }
   let html='<div class="card">';
-  html+=`<div class="cat-col-hdr">
-    <span>Item</span><span style="font-family:monospace">SKU</span>
-    <span>Vendor</span><span style="text-align:center">PAR</span>
-    <span style="text-align:right">Price</span>
-    <span style="text-align:center">On</span><span></span>
-  </div>`;
+  html+=`<div class="cat-col-hdr"> <span>Item</span><span style="font-family:monospace">SKU</span> <span>Vendor</span><span style="text-align:center">PAR</span> <span style="text-align:right">Price</span> <span style="text-align:center">On</span><span></span> </div>`;
   for (const cat of groupOrder) {
     const items=groups[cat];
     const an=items.filter(i=>i.active).length;
-    html+=`<div class="card-hdr"><span>${cat}</span>
-      <span style="font-weight:500;opacity:.8">${an}/${items.length} active</span></div>`;
+    html+=`<div class="card-hdr"><span>${cat}</span> <span style="font-weight:500;opacity:.8">${an}/${items.length} active</span></div>`;
     for (const item of items) {
       const price=item.price>0?'$'+parseFloat(item.price).toFixed(2):'—';
-      html+=`<div class="cat-item-row${item.active?'':' inactive'}">
-        <div>
-          <span style="font-weight:600;font-size:.85rem">${item.name}</span>
-          ${item.packaging?'<span style="font-size:.68rem;color:var(--muted);margin-left:5px">'+item.packaging+'</span>':''}
-        </div>
-        <div style="font-family:monospace;font-size:.72rem;color:var(--navy);font-weight:700">${item.sku||'—'}</div>
-        <div style="font-size:.78rem;color:var(--muted)">${item.vendor||'—'}</div>
-        <div style="text-align:center;font-weight:700;color:var(--navy)">${item.par||0}</div>
-        <div style="text-align:right;font-size:.8rem">${price}</div>
-        <div style="text-align:center">
-          <button class="toggle-btn" onclick="toggleActive(${item.id},${item.active})">${item.active?'✅':'⬜'}</button>
-        </div>
-        <div><button class="edit-btn" onclick="openEditModal(${item.id})">Edit</button></div>
-      </div>`;
+      html+=`<div class="cat-item-row${item.active?'':' inactive'}"> <div> <span style="font-weight:600;font-size:.85rem">${item.name}</span> ${item.packaging?'<span style="font-size:.68rem;color:var(--muted);margin-left:5px">'+item.packaging+'</span>':''} </div> <div style="font-family:monospace;font-size:.72rem;color:var(--navy);font-weight:700">${item.sku||'—'}</div> <div style="font-size:.78rem;color:var(--muted)">${item.vendor||'—'}</div> <div style="text-align:center;font-weight:700;color:var(--navy)">${item.par||0}</div> <div style="text-align:right;font-size:.8rem">${price}</div> <div style="text-align:center"> <button class="toggle-btn" onclick="toggleActive(${item.id},${item.active})">${item.active?'✅':'⬜'}</button> </div> <div><button class="edit-btn" onclick="openEditModal(${item.id})">Edit</button></div> </div>`;
     }
   }
   html+='</div><div style="padding:8px 4px;font-size:.75rem;color:var(--muted)">'+filtered.length+' items</div>';
@@ -1324,42 +1156,7 @@ function openPdfWindow(htmlContent, filename) {
   const date = document.getElementById('entry-date').value;
   const dateFmt = date ? new Date(date+'T12:00:00').toLocaleDateString('en-US',
     {month:'long',day:'numeric',year:'numeric'}) : '';
-  win.document.write(`<!DOCTYPE html><html><head>
-    <meta charset="UTF-8">
-    <title>Austin Grind Bakery Order${dateFmt ? ' - '+dateFmt : ''}</title>
-    <style>
-      body { font-family: Arial, sans-serif; font-size: 11pt; margin: 24px; color: #111; }
-      h1 { font-size: 14pt; color: #1a3a5c; margin-bottom: 4px; }
-      .subtitle { font-size: 10pt; color: #555; margin-bottom: 20px; }
-      .vendor-block { margin-bottom: 24px; page-break-inside: avoid; }
-      .vendor-hdr { background: #1a3a5c; color: #fff; padding: 8px 12px;
-        font-size: 11pt; font-weight: bold; border-radius: 4px 4px 0 0; }
-      table { width: 100%; border-collapse: collapse; font-size: 10pt; }
-      thead th { background: #d6e4f0; color: #1a3a5c; padding: 6px 10px;
-        text-align: left; font-size: 9pt; text-transform: uppercase; letter-spacing: .4px; }
-      tbody td { padding: 6px 10px; border-bottom: 1px solid #e0e8f0; }
-      tbody tr:last-child td { border-bottom: none; }
-      small { font-size: 8pt; color: #888; font-family: monospace; }
-      @media print {
-        body { margin: 0; }
-        .no-print { display: none; }
-      }
-    </style>
-  </head><body>
-    <h1>Austin Grind — Bakery Order</h1>
-    <div class="subtitle">${dateFmt}</div>
-    <div class="no-print" style="margin-bottom:16px">
-      <button onclick="window.print()"
-        style="background:#1a3a5c;color:#fff;border:none;border-radius:6px;
-               padding:10px 24px;font-size:11pt;font-weight:bold;cursor:pointer">
-        🖨 Print / Save as PDF
-      </button>
-      <span style="font-size:9pt;color:#666;margin-left:12px">
-        In the print dialog, choose "Save as PDF" to download
-      </span>
-    </div>
-    ${htmlContent}
-  </body></html>`);
+  win.document.write(`<!DOCTYPE html><html><head> <meta charset="UTF-8"> <title>Austin Grind Bakery Order${dateFmt ? ' - '+dateFmt : ''}</title> <style> body { font-family: Arial, sans-serif; font-size: 11pt; margin: 24px; color: #111; } h1 { font-size: 14pt; color: #1a3a5c; margin-bottom: 4px; } .subtitle { font-size: 10pt; color: #555; margin-bottom: 20px; } .vendor-block { margin-bottom: 24px; page-break-inside: avoid; } .vendor-hdr { background: #1a3a5c; color: #fff; padding: 8px 12px; font-size: 11pt; font-weight: bold; border-radius: 4px 4px 0 0; } table { width: 100%; border-collapse: collapse; font-size: 10pt; } thead th { background: #d6e4f0; color: #1a3a5c; padding: 6px 10px; text-align: left; font-size: 9pt; text-transform: uppercase; letter-spacing: .4px; } tbody td { padding: 6px 10px; border-bottom: 1px solid #e0e8f0; } tbody tr:last-child td { border-bottom: none; } small { font-size: 8pt; color: #888; font-family: monospace; } @media print { body { margin: 0; } .no-print { display: none; } } </style> </head><body> <h1>Austin Grind — Bakery Order</h1> <div class="subtitle">${dateFmt}</div> <div class="no-print" style="margin-bottom:16px"> <button onclick="window.print()" style="background:#1a3a5c;color:#fff;border:none;border-radius:6px; padding:10px 24px;font-size:11pt;font-weight:bold;cursor:pointer"> 🖨 Print / Save as PDF </button> <span style="font-size:9pt;color:#666;margin-left:12px"> In the print dialog, choose "Save as PDF" to download </span> </div> ${htmlContent} </body></html>`);
   win.document.close();
   win.onload = () => { setTimeout(() => win.print(), 300); };
 }
