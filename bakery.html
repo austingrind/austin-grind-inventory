@@ -492,6 +492,11 @@ function updateHeaderDate(d) {
   hdr.textContent = lbl;
 }
 function onDateChange() {
+  // Clear all data when date changes so we start fresh
+  dailyData = {};
+  priorData = {};
+  priorOrderData = {};
+  historyData = {};
   updateHeaderDate(document.getElementById('entry-date').value);
   loadCatalogAndDaily();
 }
@@ -594,7 +599,7 @@ function renderDailyForm(priorDate) {
   let enteredCount = 0;
   for (const cat of groupOrder) {
     desktopHtml += `<tr class="cat-row"><td colspan="10">${cat}</td></tr>`;
-    mobileHtml  += `<div class="cat-group-hdr"><span>${cat}</span></div>`;
+    mobileHtml  += `<div class="cat-group-hdr"><span>${cat}</span><span style="font-size:.7rem;font-weight:500;opacity:.7">${groups[cat].length} items</span></div>`;
     for (const item of groups[cat]) {
       const {d,prior,amtRec,open,samp,thrw,closing,used,autoOrd,orderVal,isOv,closeLow,hasEntry} = getItemValues(item);
       if (hasEntry) enteredCount++;
@@ -614,7 +619,7 @@ function renderDailyForm(priorDate) {
             oninput="onEntryInput(this)" onkeydown="handleKey(event,this)"
             title="Default: prior day order qty (${priorOrderData[item.id]??0})">
         </td>
-        <td class="calc">${open}</td>
+        <td class="calc" id="open-${item.id}">${open}</td>
         <td style="text-align:center">
           <input class="d-inp ${samp?'filled':''}" type="number" min="0" step="1"
             value="${samp||''}" placeholder="0"
@@ -669,7 +674,7 @@ function renderDailyForm(priorDate) {
             </div>
             <div class="field-group">
               <div class="field-label">Opening Inv</div>
-              <div class="field-value">${open}</div>
+              <div class="field-value" id="open-m-${item.id}">${open}</div>
             </div>
             <div class="field-group">
               <div class="field-label">Sample</div>
@@ -767,6 +772,13 @@ function updateCalcCells(itemId) {
   const item = catalogData.find(i=>i.id===itemId);
   if (!item) return;
   const {open,closing,used,autoOrd} = getItemValues(item);
+
+  // Update Opening Inventory displays (desktop calc cell + mobile field-value)
+  const openEl  = document.getElementById(`open-${itemId}`);
+  const openMEl = document.getElementById(`open-m-${itemId}`);
+  if (openEl)  openEl.textContent  = open;
+  if (openMEl) openMEl.textContent = open;
+
   [document.getElementById(`used-${itemId}`), document.getElementById(`used-m-${itemId}`)].forEach(el=>{
     if(el) el.textContent=used;
   });
