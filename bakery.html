@@ -245,7 +245,7 @@ header{background:var(--navy);color:#fff;padding:12px 16px;position:sticky;top:0
         inputmode="numeric" maxlength="8" placeholder="••••"
         onkeydown="if(event.key==='Enter')submitPin()">
       <div class="pin-err" id="pin-err"></div>
-      <button class="pin-btn" onclick="submitPin()">Sign In</button>
+      <button class="pin-btn" id="pin-btn" onclick="submitPin()">Sign In</button>
       <div class="pin-hint">Staff and manager PINs both work</div>
     </div>
   </div>
@@ -305,7 +305,7 @@ header{background:var(--navy);color:#fff;padding:12px 16px;position:sticky;top:0
   </div>
 </div>
 
-<div class="save-bar">
+<div class="save-bar" id="save-bar">
   <button class="btn btn-primary" onclick="saveDaily()">💾 Save</button>
   <button class="btn btn-warning" onclick="showTab('order')">📦 View Order</button>
 </div>
@@ -346,7 +346,7 @@ function checkSession() {
   return false;
 }
 function applyRoleUI() {
-  const tabs = ['daily','order','history','catalog'];
+  const tabs = ['daily','order','history','catalog','settings'];
   document.querySelectorAll('#tab-bar button').forEach((btn,i) => {
     btn.style.display = (MANAGER_TABS.has(tabs[i]) && userRole!=='manager') ? 'none' : '';
   });
@@ -405,7 +405,6 @@ function showTab(tab) {
   document.querySelectorAll('#tab-bar button')[idx].classList.add('active');
   if (tab==='order')   renderOrder();
   if (tab==='catalog') loadCatalog();
-  if (tab==='settings') loadSettings();
 }
 function updateHeaderDate(d) {
   const lbl = d ? new Date(d+'T12:00:00').toLocaleDateString('en-US',
@@ -449,16 +448,12 @@ async function loadCatalogAndDaily() {
     priorData = {}; priorOrderData = {}; historyData = {};
     const priorDate = priorRecords.length ? priorRecords[0].record_date.substring(0,10) : null;
     for (const r of priorRecords) {
-      const rid = parseInt(r.item_id);
-      if (priorData[rid] === undefined) priorData[rid] = parseFloat(r.closing_inventory) || 0;
+      if (priorData[r.item_id] === undefined) priorData[r.item_id] = r.closing_inventory ?? 0;
       if (priorDate && r.record_date.substring(0,10)===priorDate) {
-        historyData[rid] = r;
-        if ((r.order_qty ?? 0) > 0) priorOrderData[rid] = parseFloat(r.order_qty) || 0;
+        historyData[r.item_id] = r;
+        if ((r.order_qty ?? 0) > 0) priorOrderData[r.item_id] = r.order_qty;
       }
     }
-    console.log('Prior date:', priorDate, '| Prior records:', priorRecords.length,
-      '| priorData keys:', Object.keys(priorData).length,
-      '| sample:', JSON.stringify(Object.entries(priorData).slice(0,3)));
     dailyData = {};
     for (const r of todayRecords) {
       dailyData[parseInt(r.item_id)] = {
@@ -527,7 +522,7 @@ function renderDailyForm(priorDate) {
   let enteredCount = 0;
   for (const cat of groupOrder) {
     desktopHtml += `<tr class="cat-row"><td colspan="10">${cat}</td></tr>`;
-    // no mobile category headers — using filter dropdown instead
+    mobileHtml  += `<div class="cat-group-hdr"><span>${cat}</span></div>`;
     for (const item of groups[cat]) {
       const {d,prior,amtRec,open,samp,thrw,closing,used,autoOrd,orderVal,isOv,closeLow,hasEntry} = getItemValues(item);
       if (hasEntry) enteredCount++;
@@ -540,14 +535,8 @@ function renderDailyForm(priorDate) {
         </td>
         <td class="ro" style="font-weight:700;color:var(--navy)">${item.par||'—'}</td>
         <td class="ro">${prior}</td>
-        <td style="text-align:center">
-          <input class="d-inp ${amtRec>0||hasEntry?'filled':''}" type="number" min="0" step="1"
-            value="${amtRec||''}" placeholder="${amtRec||'0'}"
-            data-field="amt_received" data-item="${item.id}"
-            oninput="onEntryInput(this)" onkeydown="handleKey(event,this)"
-            title="Default: prior day order qty (${priorOrderData[item.id]??0})">
-        </td>
-        <td class="calc" id="open-${item.id}">${open}</td>
+        <td class="ro" style="font-weight:600;color:var(--navy)">${amtRec}</td>
+        <td class="calc">${open}</td>
         <td style="text-align:center">
           <input class="d-inp ${samp?'filled':''}" type="number" min="0" step="1"
             value="${samp||''}" placeholder="0"
@@ -563,7 +552,7 @@ function renderDailyForm(priorDate) {
         <td style="text-align:center">
           <input class="d-inp ${hasEntry?'filled':''} ${closeLow?'low':''}" type="number" min="0" step="1"
             value="${savedClose}"
-            placeholder="0"
+            placeholder="${closing}"
             data-field="closing_inventory" data-item="${item.id}"
             oninput="onEntryInput(this)" onkeydown="handleKey(event,this)"
             style="${closeLow?'border-color:var(--red)!important':''}">
@@ -593,16 +582,11 @@ function renderDailyForm(priorDate) {
             </div>
             <div class="field-group">
               <div class="field-label">Amt Received</div>
-              <input class="entry-input ${amtRec>0||hasEntry?'filled':''}" type="number" min="0" step="1"
-                inputmode="numeric"
-                value="${amtRec||''}" placeholder="${amtRec||'0'}"
-                data-field="amt_received" data-item="${item.id}"
-                oninput="onEntryInput(this)"
-                title="Default: prior day order qty">
+              <div class="field-value" style="color:var(--navy)">${amtRec}</div>
             </div>
             <div class="field-group">
               <div class="field-label">Opening Inv</div>
-              <div class="field-value" id="open-m-${item.id}">${open}</div>
+              <div class="field-value">${open}</div>
             </div>
             <div class="field-group">
               <div class="field-label">Sample</div>
@@ -622,7 +606,7 @@ function renderDailyForm(priorDate) {
               <div class="field-label">Closing ✏️</div>
               <input class="entry-input ${hasEntry?'filled':''}" type="number" min="0" step="1"
                 inputmode="numeric"
-                value="${savedClose}" placeholder="0"
+                value="${savedClose}" placeholder="${closing}"
                 data-field="closing_inventory" data-item="${item.id}"
                 oninput="onEntryInput(this)"
                 style="${closeLow?'border-color:var(--red)!important':''}">
@@ -648,7 +632,6 @@ function renderDailyForm(priorDate) {
   document.getElementById('daily-body').innerHTML = mobileHtml + desktopHtml;
   document.getElementById('entry-progress').textContent = `${enteredCount} / ${catalogData.length}`;
   buildInputList();
-  populateDailyCatFilter();
 }
 
 let inputList = [];
@@ -657,20 +640,19 @@ function populateDailyCatFilter() {
   const sel = document.getElementById('daily-cat-filter');
   if (!sel || sel.options.length > 1) return;
   const cats = [...new Set(catalogData.map(i => i.category))];
-  cats.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+  cats.forEach(c => sel.insertAdjacentHTML('beforeend',
+    `<option value="${c}">${c}</option>`));
 }
 
 function applyDailyCatFilter() {
-  const cat = document.getElementById('daily-cat-filter').value;
-  // Show/hide item cards (mobile) and desktop rows
+  const cat = document.getElementById('daily-cat-filter')?.value || '';
   document.querySelectorAll('.item-card').forEach(card => {
     const itemId = parseInt(card.getAttribute('data-item-id'));
-    const item = catalogData.find(i => i.id === itemId);
+    const item   = catalogData.find(i => i.id === itemId);
     card.style.display = (!cat || item?.category === cat) ? '' : 'none';
   });
   document.querySelectorAll('.desktop-table tbody tr').forEach(row => {
     if (row.classList.contains('cat-row')) {
-      // Show/hide category header rows
       const rowCat = row.querySelector('td')?.textContent?.trim();
       row.style.display = (!cat || rowCat === cat) ? '' : 'none';
     } else {
@@ -684,28 +666,18 @@ function applyDailyCatFilter() {
 }
 
 function buildInputList() {
-  // Include all editable inputs: sample, throwaway, closing, order (desktop + mobile)
   inputList = Array.from(document.querySelectorAll('.d-inp, .entry-input'));
 }
 function handleKey(e, input) {
   const idx = inputList.indexOf(input);
   if (idx === -1) return;
-
-  // Count how many editable inputs per row (amt_received, sample, throwaway, closing, order = 5)
   const COLS = 5;
   let next = -1;
-
-  if (e.key === 'ArrowDown' || (e.key === 'Enter' && !e.shiftKey)) {
-    e.preventDefault(); next = idx + COLS;
-  } else if (e.key === 'ArrowUp' || (e.key === 'Enter' && e.shiftKey)) {
-    e.preventDefault(); next = idx - COLS;
-  } else if (e.key === 'ArrowRight' || (e.key === 'Tab' && !e.shiftKey)) {
-    e.preventDefault(); next = idx + 1;
-  } else if (e.key === 'ArrowLeft' || (e.key === 'Tab' && e.shiftKey)) {
-    e.preventDefault(); next = idx - 1;
-  }
-
-  if (next >= 0 && next < inputList.length) {
+  if (e.key==='ArrowDown'||(e.key==='Enter'&&!e.shiftKey)){e.preventDefault();next=idx+COLS;}
+  else if (e.key==='ArrowUp'||(e.key==='Enter'&&e.shiftKey)){e.preventDefault();next=idx-COLS;}
+  else if (e.key==='ArrowRight'||(e.key==='Tab'&&!e.shiftKey)){e.preventDefault();next=idx+1;}
+  else if (e.key==='ArrowLeft'||(e.key==='Tab'&&e.shiftKey)){e.preventDefault();next=idx-1;}
+  if (next>=0&&next<inputList.length) {
     inputList[next].focus(); inputList[next].select();
     inputList[next].closest('tr,div')?.scrollIntoView({block:'nearest',behavior:'smooth'});
   }
@@ -743,13 +715,6 @@ function updateCalcCells(itemId) {
   const item = catalogData.find(i=>i.id===itemId);
   if (!item) return;
   const {open,closing,used,autoOrd} = getItemValues(item);
-
-  // Update Opening Inventory displays (desktop calc cell + mobile field-value)
-  const openEl  = document.getElementById(`open-${itemId}`);
-  const openMEl = document.getElementById(`open-m-${itemId}`);
-  if (openEl)  openEl.textContent  = open;
-  if (openMEl) openMEl.textContent = open;
-
   [document.getElementById(`used-${itemId}`), document.getElementById(`used-m-${itemId}`)].forEach(el=>{
     if(el) el.textContent=used;
   });
@@ -830,25 +795,8 @@ function renderOrder() {
   let html='';
   for (const [v,items] of Object.entries(byVendor).sort()) {
     const total = items.reduce((s,i)=>s+(i.price>0?i.qty*i.price:0),0);
-    const vendorSlug = v.replace(/[^a-z0-9]/gi,'_');
-    html += `<div class="order-card" id="vendor-card-${vendorSlug}"><div class="order-hdr">
-      <span>📦 ${v}</span>
-      <div style="display:flex;gap:8px;align-items:center">
-        <span>${items.length} item${items.length>1?'s':''}</span>
-        <button onclick="printVendor('${vendorSlug}')"
-          style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);
-                 color:#fff;border-radius:6px;padding:4px 10px;font-size:.75rem;
-                 font-weight:700;cursor:pointer">🖨 Print</button>
-        <button onclick="copyVendorOrder('${v}')"
-          style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);
-                 color:#fff;border-radius:6px;padding:4px 10px;font-size:.75rem;
-                 font-weight:700;cursor:pointer">📋 Copy</button>
-        <button onclick="pdfVendor('${v}','${vendorSlug}')"
-          style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);
-                 color:#fff;border-radius:6px;padding:4px 10px;font-size:.75rem;
-                 font-weight:700;cursor:pointer">📄 PDF</button>
-      </div>
-    </div>
+    html += `<div class="order-card"><div class="order-hdr">
+      <span>📦 ${v}</span><span>${items.length} item${items.length>1?'s':''}</span></div>
       <div class="table-wrap"><table class="order-table"><thead><tr>
         <th>Item</th><th style="text-align:center">Closing</th>
         <th style="text-align:center">PAR</th>
@@ -897,8 +845,8 @@ function sendOrder() {
     body += '\n';
   }
   body += 'Please confirm receipt of this order.\nThank you!';
-  // Use first vendor's email or test email from settings\n  const firstVendor = Object.keys(byVendor).sort()[0] || '';\n  const toEmail = getVendorEmail(firstVendor) || BAKER_EMAIL;\n  const cc      = getCC();\n  const subject = encodeURIComponent(`It's A Grind Coffee House - Bakery Order ${dateFmt}`);
-  window.location.href = `mailto:${toEmail}?cc=${encodeURIComponent(cc)}&subject=${subject}&body=${encodeURIComponent(body)}`;
+  const subject = encodeURIComponent(`It's A Grind Coffee House - Bakery Order ${dateFmt}`);
+  window.location.href = `mailto:${BAKER_EMAIL}?cc=${encodeURIComponent(BAKER_CC)}&subject=${subject}&body=${encodeURIComponent(body)}`;
 }
 
 async function loadHistory() {
@@ -1086,9 +1034,11 @@ function openEditModal(id) {
   document.getElementById('m-active').checked=item.active!==false;
   document.getElementById('modal-overlay').style.display='block';
 }
-function closeModal(){document.getElementById('modal-overlay').style.display='none';editingId=null;}
-document.getElementById('modal-overlay').addEventListener('click',e=>{
-  if(e.target===document.getElementById('modal-overlay'))closeModal();});
+function closeModal(){const el=document.getElementById('modal-overlay');if(el)el.style.display='none';editingId=null;}
+window.addEventListener('load',()=>{
+  const mo=document.getElementById('modal-overlay');
+  if(mo) mo.addEventListener('click',e=>{if(e.target===mo)closeModal();});
+});
 function showModalErr(msg){const el=document.getElementById('modal-err');el.textContent=msg;el.style.display='block';}
 async function saveItem() {
   const name=document.getElementById('m-name').value.trim();
@@ -1149,32 +1099,25 @@ const SETTINGS_KEY = 'bk_settings';
 
 function loadSettings() {
   const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
-  document.getElementById('test-mode').checked  = saved.testMode  || false;
-  document.getElementById('test-email').value   = saved.testEmail || '';
-  document.getElementById('settings-cc').value  = saved.cc        || 'lara@austingrind.com';
-
-  // Build vendor email fields from current order vendors
+  document.getElementById('test-mode').checked = saved.testMode  || false;
+  document.getElementById('test-email').value  = saved.testEmail || '';
+  document.getElementById('settings-cc').value = saved.cc        || 'lara@austingrind.com';
   const vendors = [...new Set(catalogData.map(i => i.vendor).filter(Boolean))].sort();
   const vendorEmails = saved.vendorEmails || {};
   const defaults = {
-    'Russells':        'wholesale@russellsbakery.com',
-    'Johnson Brothers':'',
-    'Oak Farms':       '',
-    'Costco':          '',
-    'PFG':             '',
+    'Russells':'wholesale@russellsbakery.com',
+    'Johnson Brothers':'','Oak Farms':'','Costco':'','PFG':''
   };
-  let html = '';
+  let vhtml = '';
   vendors.forEach(v => {
     const email = vendorEmails[v] || defaults[v] || '';
     const slug  = v.replace(/[^a-z0-9]/gi,'_');
-    html += `<div>
-      <label class="modal-lbl">${v}</label>
-      <input class="modal-inp" type="email" id="vendor-email-${slug}"
-        value="${email}" placeholder="vendor@example.com"
-        oninput="saveSettings()">
-    </div>`;
+    vhtml += '<div><label class="modal-lbl">'+v+'</label>'
+      +'<input class="modal-inp" type="email" id="vendor-email-'+slug+'"'
+      +' value="'+email+'" placeholder="vendor@example.com"'
+      +' oninput="saveSettings()"></div>';
   });
-  document.getElementById('vendor-email-list').innerHTML = html;
+  document.getElementById('vendor-email-list').innerHTML = vhtml;
 }
 
 function saveSettings() {
@@ -1182,7 +1125,7 @@ function saveSettings() {
   const vendorEmails = {};
   vendors.forEach(v => {
     const slug = v.replace(/[^a-z0-9]/gi,'_');
-    const el   = document.getElementById(`vendor-email-${slug}`);
+    const el   = document.getElementById('vendor-email-'+slug);
     if (el && el.value.trim()) vendorEmails[v] = el.value.trim();
   });
   const settings = {
@@ -1209,44 +1152,224 @@ function getCC() {
   return getSettings().cc || 'lara@austingrind.com';
 }
 
-// ── Per-vendor print ───────────────────────────────────────────────────────────
 function printVendor(vendorSlug) {
-  // Hide all other vendor cards, print, then restore
   const allCards = document.querySelectorAll('.order-card');
-  const target   = document.getElementById(`vendor-card-${vendorSlug}`);
-  allCards.forEach(c => {
-    if (c !== target) c.style.display = 'none';
-  });
+  const target   = document.getElementById('vendor-card-'+vendorSlug);
+  allCards.forEach(c => { if (c !== target) c.style.display = 'none'; });
   window.print();
-  allCards.forEach(c => c.style.display = '');
+  allCards.forEach(c => { c.style.display = ''; });
 }
 
-// ── Per-vendor email ───────────────────────────────────────────────────────────
 function emailVendor(vendor) {
   const date = document.getElementById('entry-date').value;
   const dateFmt = date ? new Date(date+'T12:00:00').toLocaleDateString('en-US',
     {month:'numeric',day:'numeric',year:'numeric'}) : date;
-  const s = getSettings();
-
-  // Get items for this vendor only
   const vendorItems = catalogData.filter(item => {
     if (item.vendor !== vendor) return false;
     const {orderVal} = getItemValues(item);
     return orderVal > 0;
   });
-
-  if (!vendorItems.length) { toast(`No items to order from ${vendor}`); return; }
-
-  let body = `Austin Grind - Bakery Order for ${dateFmt}\n\n`;
-  body += vendor.toUpperCase() + '\n' + '─'.repeat(40) + '\n';
+  if (!vendorItems.length) { toast('No items to order from '+vendor); return; }
+  let body = 'Austin Grind - Bakery Order for '+dateFmt+'\n\n';
+  body += vendor.toUpperCase()+'\n'+Array(41).join('-')+'\n';
   for (const item of vendorItems) {
     const {orderVal} = getItemValues(item);
-    body += `  ${item.name.padEnd(35)} Qty: ${orderVal}`;
-    if (item.price > 0) body += `  ($${(orderVal * item.price).toFixed(2)})`;
+    body += '  '+item.name.padEnd(35)+' Qty: '+orderVal;
+    if (item.price > 0) body += '  ($'+(orderVal * item.price).toFixed(2)+')';
     body += '\n';
   }
   body += '\nPlease confirm receipt of this order.\nThank you!';
+  const toEmail = getVendorEmail(vendor);
+  const cc      = getCC();
+  const subject = encodeURIComponent("It's A Grind Coffee House - Bakery Order "+dateFmt);
+  if (!toEmail) toast('No email set for '+vendor+' — add it in Settings tab');
+  window.location.href = 'mailto:'+toEmail+'?cc='+encodeURIComponent(cc)
+    +'&subject='+subject+'&body='+encodeURIComponent(body);
+}
 
-  const toEmail  = getVendorEmail(vendor);
-  const cc       = getCC();
-  >
+
+// ── Build order text for a vendor ─────────────────────────────────────────────
+function buildVendorOrderText(vendor) {
+  const date = document.getElementById('entry-date').value;
+  const dateFmt = date ? new Date(date+'T12:00:00').toLocaleDateString('en-US',
+    {month:'numeric',day:'numeric',year:'numeric'}) : date;
+  const items = catalogData.filter(item => {
+    if (item.vendor !== vendor) return false;
+    const {orderVal} = getItemValues(item);
+    return orderVal > 0;
+  });
+  if (!items.length) return null;
+  let text = "Austin Grind - Bakery Order for " + dateFmt + "\n";
+  text += vendor.toUpperCase() + "\n" + Array(41).join("-") + "\n";
+  let total = 0;
+  for (const item of items) {
+    const {orderVal} = getItemValues(item);
+    const lineTotal = item.price > 0 ? orderVal * item.price : 0;
+    total += lineTotal;
+    text += item.name.padEnd(35) + " Qty: " + orderVal;
+    if (item.price > 0) text += "   $" + lineTotal.toFixed(2);
+    text += "\n";
+  }
+  if (total > 0) text += Array(41).join("-") + "\nTotal: $" + total.toFixed(2) + "\n";
+  text += "\nPlease confirm receipt of this order.\nThank you!\n";
+  return {text, dateFmt, items};
+}
+
+function buildAllOrdersText() {
+  const vendors = [...new Set(catalogData.map(i=>i.vendor).filter(Boolean))].sort();
+  const date = document.getElementById('entry-date').value;
+  const dateFmt = date ? new Date(date+'T12:00:00').toLocaleDateString('en-US',
+    {month:'numeric',day:'numeric',year:'numeric'}) : date;
+  let full = "Austin Grind - Bakery Orders for " + dateFmt + "\n\n";
+  let hasAny = false;
+  for (const vendor of vendors) {
+    const result = buildVendorOrderText(vendor);
+    if (result) { full += result.text + "\n"; hasAny = true; }
+  }
+  return hasAny ? {text:full, dateFmt} : null;
+}
+
+// ── Copy to clipboard ─────────────────────────────────────────────────────────
+function copyVendorOrder(vendor) {
+  const result = buildVendorOrderText(vendor);
+  if (!result) { toast("No items to order from " + vendor); return; }
+  navigator.clipboard.writeText(result.text)
+    .then(() => toast("Copied " + vendor + " order to clipboard ✓"))
+    .catch(() => {
+      // Fallback for older browsers
+      const el = document.createElement('textarea');
+      el.value = result.text;
+      document.body.appendChild(el);
+      el.select(); document.execCommand('copy');
+      document.body.removeChild(el);
+      toast("Copied " + vendor + " order to clipboard ✓");
+    });
+}
+
+function copyAllOrders() {
+  const result = buildAllOrdersText();
+  if (!result) { toast("No items to order"); return; }
+  navigator.clipboard.writeText(result.text)
+    .then(() => toast("All orders copied to clipboard ✓"))
+    .catch(() => {
+      const el = document.createElement('textarea');
+      el.value = result.text;
+      document.body.appendChild(el);
+      el.select(); document.execCommand('copy');
+      document.body.removeChild(el);
+      toast("All orders copied to clipboard ✓");
+    });
+}
+
+// ── PDF generation using browser print-to-PDF ────────────────────────────────
+// We generate a clean HTML page in a new window and trigger print
+// The user can Save as PDF from the print dialog
+
+function buildOrderHtml(vendor, items, dateFmt) {
+  let rows = '';
+  let total = 0;
+  for (const item of items) {
+    const {orderVal} = getItemValues(item);
+    const lineTotal = item.price > 0 ? orderVal * item.price : 0;
+    total += lineTotal;
+    rows += '<tr>'
+      + '<td>' + item.name + (item.sku ? '<br><small>' + item.sku + '</small>' : '') + '</td>'
+      + '<td style="text-align:center">' + orderVal + '</td>'
+      + '<td style="text-align:right">' + (item.price>0 ? '$'+item.price.toFixed(2) : '—') + '</td>'
+      + '<td style="text-align:right">' + (lineTotal>0 ? '$'+lineTotal.toFixed(2) : '—') + '</td>'
+      + '</tr>';
+  }
+  const totalRow = total > 0
+    ? '<tr style="font-weight:700;border-top:2px solid #1a3a5c">'
+      + '<td colspan="3" style="text-align:right">Estimated Total</td>'
+      + '<td style="text-align:right">$'+total.toFixed(2)+'</td>'
+      + '</tr>' : '';
+  return '<div class="vendor-block">'
+    + '<div class="vendor-hdr">' + vendor + '</div>'
+    + '<table><thead><tr>'
+    + '<th>Item</th><th style="text-align:center">Qty</th>'
+    + '<th style="text-align:right">Unit Price</th><th style="text-align:right">Total</th>'
+    + '</tr></thead><tbody>' + rows + totalRow + '</tbody></table>'
+    + '</div>';
+}
+
+function openPdfWindow(htmlContent, filename) {
+  const win = window.open('', '_blank');
+  if (!win) { toast('Pop-up blocked — allow pop-ups and try again'); return; }
+  const date = document.getElementById('entry-date').value;
+  const dateFmt = date ? new Date(date+'T12:00:00').toLocaleDateString('en-US',
+    {month:'long',day:'numeric',year:'numeric'}) : '';
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>Austin Grind Bakery Order${dateFmt ? ' - '+dateFmt : ''}</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 11pt; margin: 24px; color: #111; }
+      h1 { font-size: 14pt; color: #1a3a5c; margin-bottom: 4px; }
+      .subtitle { font-size: 10pt; color: #555; margin-bottom: 20px; }
+      .vendor-block { margin-bottom: 24px; page-break-inside: avoid; }
+      .vendor-hdr { background: #1a3a5c; color: #fff; padding: 8px 12px;
+        font-size: 11pt; font-weight: bold; border-radius: 4px 4px 0 0; }
+      table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+      thead th { background: #d6e4f0; color: #1a3a5c; padding: 6px 10px;
+        text-align: left; font-size: 9pt; text-transform: uppercase; letter-spacing: .4px; }
+      tbody td { padding: 6px 10px; border-bottom: 1px solid #e0e8f0; }
+      tbody tr:last-child td { border-bottom: none; }
+      small { font-size: 8pt; color: #888; font-family: monospace; }
+      @media print {
+        body { margin: 0; }
+        .no-print { display: none; }
+      }
+    </style>
+  </head><body>
+    <h1>Austin Grind — Bakery Order</h1>
+    <div class="subtitle">${dateFmt}</div>
+    <div class="no-print" style="margin-bottom:16px">
+      <button onclick="window.print()"
+        style="background:#1a3a5c;color:#fff;border:none;border-radius:6px;
+               padding:10px 24px;font-size:11pt;font-weight:bold;cursor:pointer">
+        🖨 Print / Save as PDF
+      </button>
+      <span style="font-size:9pt;color:#666;margin-left:12px">
+        In the print dialog, choose "Save as PDF" to download
+      </span>
+    </div>
+    ${htmlContent}
+  </body></html>`);
+  win.document.close();
+  win.onload = () => { setTimeout(() => win.print(), 300); };
+}
+
+function pdfVendor(vendor, vendorSlug) {
+  const result = buildVendorOrderText(vendor);
+  if (!result) { toast("No items to order from " + vendor); return; }
+  const items = catalogData.filter(item => {
+    if (item.vendor !== vendor) return false;
+    const {orderVal} = getItemValues(item);
+    return orderVal > 0;
+  });
+  const htmlContent = buildOrderHtml(vendor, items, result.dateFmt);
+  openPdfWindow(htmlContent, 'AG-Order-'+vendor+'-'+result.dateFmt);
+}
+
+function pdfAllOrders() {
+  renderOrder(); // ensure order is current
+  const vendors = [...new Set(catalogData.map(i=>i.vendor).filter(Boolean))].sort();
+  const date = document.getElementById('entry-date').value;
+  const dateFmt = date ? new Date(date+'T12:00:00').toLocaleDateString('en-US',
+    {month:'numeric',day:'numeric',year:'numeric'}) : '';
+  let allHtml = '';
+  for (const vendor of vendors) {
+    const items = catalogData.filter(item => {
+      if (item.vendor !== vendor) return false;
+      const {orderVal} = getItemValues(item);
+      return orderVal > 0;
+    });
+    if (items.length) allHtml += buildOrderHtml(vendor, items, dateFmt);
+  }
+  if (!allHtml) { toast("No items to order"); return; }
+  openPdfWindow(allHtml, 'AG-Orders-All-'+dateFmt);
+}
+
+</script>
+</body>
+</html>
