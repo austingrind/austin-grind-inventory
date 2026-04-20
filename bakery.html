@@ -531,7 +531,7 @@ function renderDailyForm(priorDate) {
       desktopHtml += `<tr data-item-id="${item.id}">
         <td>
           <div style="font-weight:600;font-size:.83rem">${item.name}</div>
-          ${item.sku?`<div style="font-size:.65rem;color:var(--muted);font-family:monospace">${item.sku}</div>`:''}
+          ${item.sku?'<div style="font-size:.65rem;color:var(--muted);font-family:monospace">'+item.sku+'</div>':''}
         </td>
         <td class="ro" style="font-weight:700;color:var(--navy)">${item.par||'—'}</td>
         <td class="ro">${prior}</td>
@@ -570,7 +570,7 @@ function renderDailyForm(priorDate) {
         <div class="item-card-hdr">
           <div>
             <div class="item-card-name">${item.name}</div>
-            ${item.sku?`<div class="item-card-sku">${item.sku}</div>`:''}
+            ${item.sku?'<div class="item-card-sku">'+item.sku+'</div>':''}
           </div>
           <div class="item-card-par">PAR: ${item.par||'—'}</div>
         </div>
@@ -674,7 +674,7 @@ function buildInputList() {
 function handleKey(e, input) {
   const idx = inputList.indexOf(input);
   if (idx === -1) return;
-  const COLS = 5;
+  const COLS = 4;
   let next = -1;
   if (e.key==='ArrowDown'||(e.key==='Enter'&&!e.shiftKey)){e.preventDefault();next=idx+COLS;}
   else if (e.key==='ArrowUp'||(e.key==='Enter'&&e.shiftKey)){e.preventDefault();next=idx-COLS;}
@@ -810,7 +810,7 @@ function renderOrder() {
     for (const item of items) {
       const lt = item.price>0?'$'+(item.qty*item.price).toFixed(2):'—';
       html+=`<tr>
-        <td><strong>${item.name}</strong>${item.sku?`<br><span style="font-size:.68rem;color:#999;font-family:monospace">${item.sku}</span>`:''}</td>
+        <td><strong>${item.name}</strong>${item.sku?'<br><span style="font-size:.68rem;color:#999;font-family:monospace">'+item.sku+'</span>':''}</td>
         <td style="text-align:center;color:var(--red)">${item.closing}</td>
         <td style="text-align:center">${item.par}</td>
         <td style="text-align:center;font-weight:700;color:${item.isOv?'var(--orange)':'var(--navy)'}">
@@ -978,7 +978,7 @@ function renderCatalog() {
       html+=`<div class="cat-item-row${item.active?'':' inactive'}">
         <div>
           <span style="font-weight:600;font-size:.85rem">${item.name}</span>
-          ${item.packaging?`<span style="font-size:.68rem;color:var(--muted);margin-left:5px">${item.packaging}</span>`:''}
+          ${item.packaging?'<span style="font-size:.68rem;color:var(--muted);margin-left:5px">'+item.packaging+'</span>':''}
         </div>
         <div style="font-family:monospace;font-size:.72rem;color:var(--navy);font-weight:700">${item.sku||'—'}</div>
         <div style="font-size:.78rem;color:var(--muted)">${item.vendor||'—'}</div>
