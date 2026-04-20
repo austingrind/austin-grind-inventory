@@ -666,7 +666,10 @@ function applyDailyCatFilter() {
 }
 
 function buildInputList() {
-  inputList = Array.from(document.querySelectorAll('.d-inp, .entry-input'));
+  // Only include visible inputs — excludes hidden mobile cards on desktop
+  // and hidden desktop table on mobile
+  inputList = Array.from(document.querySelectorAll('.d-inp, .entry-input'))
+    .filter(el => el.offsetParent !== null);
 }
 function handleKey(e, input) {
   const idx = inputList.indexOf(input);
