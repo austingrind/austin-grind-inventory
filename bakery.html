@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Austin Grind — Bakery</title>
+<style>
+  :root {
+    --navy:#1a3a5c; --cat-bg:#d6e4f0; --cat-txt:#1a3a5c;
+    --odd:#f7fafc; --even:#ffffff; --border:#d0d8e0;
+    --blue:#0066cc; --blue-lt:#ebf5fb;
+    --red:#c0392b; --green:#27ae60; --orange:#e67e22;
+    --text:#1a1a18; --muted:#6c757d; --radius:8px;
+    --shadow:0 2px 8px rgba(0,0,0,.10);
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+    background:#eef2f7; color:var(--text); min-height:100vh; }
+
+  /* ── Login ── */
+  #login-screen { position:fixed; inset:0; background:#eef2f7;
+    display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px; }
+  .login-card { background:#fff; border-radius:16px;
+    box-shadow:0 8px 32px rgba(0,0,0,.15); width:100%; max-width:340px; overflow:hidden; }
+  .login-hdr { background:var(--navy); color:#fff; padding:28px 24px 22px; text-align:center; }
+  .login-hdr h2 { font-size:1.2rem; font-weight:700; margin-bottom:4px; }
+  .login-hdr p  { font-size:.83rem; opacity:.7; }
+  .pin-label { display:block; font-size:.75rem; font-weight:700; color:var(--muted);
+    text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
+  .pin-input { width:100%; border:2px solid var(--border); border-radius:10px;
+    padding:14px 16px; font-size:1.5rem; font-weight:700; letter-spacing:.35em;
+    text-align:center; color:var(--navy); background:#f7fafc;
+    -webkit-text-security:disc; transition:border-color .15s; }
+  .pin-input:focus { outline:none; border-color:var(--blue); background:var(--blue-lt); }
+  .pin-input.shake { animation:shake .35s ease;
+    border-color:var(--red)!important; background:#fff5f5!important; }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)}
+    40%{transform:translateX(8px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(5px)}
+  }
+  .pin-err { color:var(--red); font-size:.82rem; text-align:center;
+    margin-top:8px; min-height:18px; font-weight:600; }
+  .pin-btn { width:100%; margin-top:14px; padding:13px;
+    background:var(--navy); color:#fff; border:none; border-radius:10px;
+    font-size:1rem; font-weight:700; cursor:pointer; }
+  .pin-btn:hover { background:#2a5a8c; }
+  .pin-hint { text-align:center; margin-top:12px; font-size:.78rem; color:var(--muted); }
+
+  /* ── Header ── */
+  header { background:var(--navy); color:#fff; padding:12px 16px;
+    position:sticky; top:0; z-index:100;
+    display:flex; align-items:center; justify-content:space-between;
+    box-shadow:var(--shadow); }
+  .hdr-left { display:flex; align-items:center; gap:12px; }
+  .hdr-title { font-size:1rem; font-weight:700; }
+  .hdr-sub   { font-size:.75rem; opacity:.7; margin-top:1px; }
+  .hdr-right { display:flex; gap:8px; align-items:center; }
+
+  /* ── Tabs ── */
+  .tabs { display:flex; background:var(--navy);
+    border-top:1px solid rgba(255,255,255,.15); overflow-x:auto; }
+  .tabs button { flex:none; padding:9px 16px; background:none; border:none;
+    color:rgba(255,255,255,.6); font-size:.82rem; font-weight:600;
+    cursor:pointer; white-space:nowrap;
+    border-bottom:3px solid transparent; transition:all .15s; position:relative; }
+  .tabs button.active { color:#fff; border-bottom-color:#4a90d9; }
+  .tabs button.mgr-tab::after { content:'MGR'; font-size:.55rem; font-weight:700;
+    background:#f39c12; color:#fff; border-radius:3px; padding:1px 4px;
+    position:absolute; top:5px; right:3px; }
+
+  /* ── Panels ── */
+  .panel { display:none; padding:12px 12px 90px; max-width:1000px; margin:0 auto; }
+  .panel.active { display:block; }
+
+  /* ── Toast ── */
+  #toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+    background:#222; color:#fff; padding:9px 20px; border-radius:20px;
+    font-size:.85rem; font-weight:600; opacity:0; transition:opacity .25s;
+    pointer-events:none; z-index:999; white-space:nowrap; }
+  #toast.show { opacity:1; }
+
+  /* ── Top bar ── */
+  .top-bar { background:#fff; border-radius:var(--radius); padding:10px 14px;
+    display:flex; align-items:center; gap:10px; margin-bottom:10px;
+    box-shadow:var(--shadow); flex-wrap:wrap; }
+  .top-bar label { font-size:.82rem; font-weight:600; color:var(--navy); white-space:nowrap; }
+  .top-bar input[type=date], .top-bar input[type=text] {
+    border:1.5px solid var(--border); border-radius:6px;
+    padding:5px 10px; font-size:.9rem; color:var(--text); }
+  .top-bar input:focus { outline:none; border-color:var(--blue); }
+
+  /* ── Buttons ── */
+  .btn { padding:10px 22px; border:none; border-radius:var(--radius);
+    font-size:.9rem; font-weight:700; cursor:pointer; transition:opacity .15s; }
+  .btn:active { opacity:.8; }
+  .btn-primary { background:#4a90d9; color:#fff; }
+  .btn-success { background:var(--green); color:#fff; }
+  .btn-warning { background:var(--orange); color:#fff; }
+  .btn-sm      { padding:7px 14px; font-size:.82rem; }
+  .btn-outline { background:transparent; color:#fff;
+    border:2px solid rgba(255,255,255,.45); }
+
+  /* ── Save bar ── */
+  .save-bar { position:fixed; bottom:0; left:0; right:0;
+    background:var(--navy); padding:10px 16px;
+    display:flex; gap:10px; justify-content:center; z-index:200;
+    box-shadow:0 -2px 12px rgba(0,0,0,.2); }
+
+  /* ── Sync badge ── */
+  .sync-badge { font-size:.7rem; font-weight:700; padding:3px 8px;
+    border-radius:10px; border:1.5px solid rgba(255,255,255,.4);
+    color:rgba(255,255,255,.8); white-space:nowrap; }
+  .sync-badge.ok     { border-color:#27ae60; color:#7deca1; }
+  .sync-badge.err    { border-color:#e74c3c; color:#ff9999; }
+  .sync-badge.saving { border-color:#f39c12; color:#ffd27d; }
+
+  /* ── Daily entry table ── */
+  .entry-wrap { overflow-x:auto; }
+  .entry-table { width:100%; border-collapse:collapse; font-size:.83rem;
+    background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); }
+  .entry-table thead th {
+    background:var(--navy); color:#fff; padding:9px 10px;
+    text-align:center; font-size:.72rem; font-weight:700;
+    text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
+  .entry-table thead th:first-child { text-align:left; border-radius:var(--radius) 0 0 0; }
+  .entry-table thead th:last-child  { border-radius:0 var(--radius) 0 0; }
+  .entry-table tbody tr:nth-child(odd)  { background:var(--odd); }
+  .entry-table tbody tr:nth-child(even) { background:var(--even); }
+  .entry-table tbody tr:hover { background:#f0f4f8; }
+  .entry-table td { padding:6px 8px; border-bottom:1px solid var(--border);
+    vertical-align:middle; }
+  .entry-table tr:last-child td { border-bottom:none; }
+
+  /* Category header row */
+  .cat-row td { background:var(--cat-bg) !important;
+    color:var(--cat-txt); font-weight:700; font-size:.75rem;
+    text-transform:uppercase; letter-spacing:.5px;
+    padding:5px 10px; }
+
+  /* Calculated cells */
+  .calc-cell { text-align:center; font-weight:700;
+    color:var(--navy); background:rgba(74,144,217,.08) !important; }
+  .calc-cell.low { color:var(--red); }
+
+  /* Prior day cells */
+  .prior-cell { text-align:center; color:var(--muted);
+    font-size:.8rem; background:rgba(0,0,0,.02) !important; }
+
+  /* History cells (read-only row) */
+  .hist-row td { opacity:.6; font-style:italic; }
+  .hist-row .calc-cell { opacity:.6; }
+
+  /* Entry inputs */
+  .entry-input { width:62px; height:36px; text-align:center;
+    border:2px solid #4a90d9; border-radius:6px;
+    font-size:.95rem; font-weight:700; color:var(--blue);
+    background:var(--blue-lt); -moz-appearance:textfield; display:block; margin:0 auto; }
+  .entry-input::-webkit-outer-spin-button,
+  .entry-input::-webkit-inner-spin-button { -webkit-appearance:none; }
+  .entry-input:focus { outline:none; border-color:var(--navy);
+    background:#dbeeff; box-shadow:0 0 0 3px rgba(74,144,217,.25); }
+  .entry-input.filled { background:#dbeeff; border-color:var(--navy); }
+
+  /* Item name cell */
+  .item-name-cell { min-width:180px; }
+  .item-name { font-weight:600; font-size:.85rem; }
+  .item-sku  { font-size:.68rem; color:var(--muted); font-family:monospace; }
+
+  /* ── History table ── */
+  .hist-table { width:100%; border-collapse:collapse; font-size:.83rem;
+    background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
+  .hist-table th { background:var(--cat-bg); color:var(--cat-txt);
+    padding:8px 10px; text-align:left; font-size:.75rem;
+    font-weight:700; text-transform:uppercase; letter-spacing:.4px; }
+  .hist-table td { padding:7px 10px; border-bottom:1px solid var(--border); }
+  .hist-table tr:last-child td { border-bottom:none; }
+  .hist-table tr:hover td { background:#f0f4f8; }
+
+  /* ── Filter bar ── */
+  .filter-bar { background:#fff; border-radius:var(--radius); padding:10px 14px;
+    display:flex; gap:10px; align-items:center; margin-bottom:12px;
+    box-shadow:var(--shadow); flex-wrap:wrap; }
+  .filter-bar label { font-size:.82rem; font-weight:600; color:var(--navy); }
+  .filter-bar input, .filter-bar select {
+    border:1.5px solid var(--border); border-radius:6px; padding:5px 10px; font-size:.85rem; }
+
+  /* ── Catalog ── */
+  .cat-group-hdr { background:var(--cat-bg); color:var(--cat-txt);
+    font-size:.78rem; font-weight:700; letter-spacing:.6px; text-transform:uppercase;
+    padding:7px 12px; border-radius:var(--radius) var(--radius) 0 0;
+    margin-top:12px; display:flex; justify-content:space-between; align-items:center; }
+  .cat-item-row { display:grid;
+    grid-template-columns:1fr 70px 80px 60px 60px 44px 48px;
+    padding:7px 10px 7px 12px; border-bottom:1px solid var(--border);
+    font-size:.85rem; align-items:center; }
+  .cat-item-row:last-child { border-bottom:none; }
+  .cat-item-row:nth-child(odd)  { background:var(--odd); }
+  .cat-item-row:nth-child(even) { background:var(--even); }
+  .cat-item-row.inactive { opacity:.42; }
+  .cat-col-hdr { display:grid;
+    grid-template-columns:1fr 70px 80px 60px 60px 44px 48px;
+    padding:5px 10px 5px 12px; font-size:.72rem; font-weight:700;
+    color:var(--muted); text-transform:uppercase; letter-spacing:.4px;
+    background:#fff; border-bottom:1px solid var(--border); }
+  .edit-btn { background:none; border:1.5px solid var(--border); border-radius:5px;
+    padding:3px 8px; font-size:.75rem; cursor:pointer; color:var(--blue); font-weight:600; }
+  .edit-btn:hover { background:var(--blue-lt); }
+  .toggle-btn { background:none; border:none; cursor:pointer; font-size:1rem; padding:2px 6px; }
+
+  /* ── Modal ── */
+  #modal-overlay { display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,.5); z-index:500; overflow-y:auto; padding:20px; }
+  .modal-card { background:#fff; border-radius:12px; max-width:480px;
+    margin:0 auto; box-shadow:0 8px 32px rgba(0,0,0,.2); }
+  .modal-hdr { background:var(--navy); color:#fff; padding:14px 18px;
+    border-radius:12px 12px 0 0;
+    display:flex; justify-content:space-between; align-items:center; }
+  .modal-hdr span { font-weight:700; font-size:1rem; }
+  .modal-hdr button { background:none; border:none; color:#fff;
+    font-size:1.4rem; cursor:pointer; line-height:1; }
+  .modal-body { padding:18px; display:flex; flex-direction:column; gap:12px; }
+  .modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .full-col { grid-column:1/-1; }
+  .modal-lbl { display:block; font-size:.75rem; font-weight:700; color:var(--muted);
+    text-transform:uppercase; margin-bottom:4px; }
+  .modal-inp { width:100%; border:1.5px solid var(--border); border-radius:6px;
+    padding:7px 10px; font-size:.9rem; color:var(--text); }
+  .modal-inp:focus { outline:none; border-color:var(--blue); }
+  .modal-err { color:var(--red); font-size:.82rem; display:none; }
+  .modal-footer { display:flex; gap:10px; justify-content:flex-end; padding-top:4px; }
+
+  /* ── Order input ── */
+  .order-input { width:58px; border-color:#27ae60 !important; background:#f0fff4 !important; }
+  .order-input.order-overridden { border-color:#e67e22 !important; background:#fff8f0 !important;
+    color:var(--orange) !important; }
+
+  /* ── Order preview ── */
+  .order-card { background:#fff; border-radius:var(--radius);
+    box-shadow:var(--shadow); overflow:hidden; margin-bottom:16px; }
+  .order-hdr { background:var(--navy); color:#fff; padding:12px 16px;
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:.95rem; font-weight:700; }
+  .order-table { width:100%; border-collapse:collapse; font-size:.85rem; }
+  .order-table th { background:var(--cat-bg); color:var(--cat-txt);
+    padding:7px 10px; text-align:left; font-size:.75rem;
+    font-weight:700; text-transform:uppercase; letter-spacing:.4px; }
+  .order-table td { padding:7px 10px; border-bottom:1px solid var(--border); }
+  .order-table tr:last-child td { border-bottom:none; }
+  .no-order { padding:48px; text-align:center; color:var(--muted); }
+
+  @media print {
+    header, .tabs, .save-bar, .top-bar, .filter-bar,
+    #login-screen, #modal-overlay, #toast,
+    #panel-daily, #panel-history, #panel-catalog { display:none !important; }
+    #panel-order { display:block !important; padding:0; }
+    body { background:#fff; }
+    .order-card { box-shadow:none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-hdr">
+      <h2>Austin Grind</h2>
+      <p>Bakery & Dairy Tracker</p>
+    </div>
+    <div style="padding:24px">
+      <label class="pin-label" for="pin-input">Enter your PIN</label>
+      <input class="pin-input" id="pin-input" type="password"
+        inputmode="numeric" maxlength="8" placeholder="••••"
+        onkeydown="if(event.key==='Enter')submitPin()">
+      <div class="pin-err" id="pin-err"></div>
+      <button class="pin-btn" onclick="submitPin()">Sign In</button>
+      <div class="pin-hint">Staff and manager PINs both work here</div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<header>
+  <div class="hdr-left">
+    <div>
+      <div class="hdr-title">Austin Grind — Bakery</div>
+      <div class="hdr-sub" id="hdr-date">Loading…</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <span class="sync-badge" id="sync-badge">—</span>
+    <button class="btn btn-outline btn-sm" id="signout-btn"
+      onclick="signOut()" style="display:none">Sign Out</button>
+  </div>
+</header>
+
+<div class="tabs" id="tab-bar">
+  <button class="active" onclick="showTab('daily')">📋 Daily Entry</button>
+  <button onclick="showTab('order')">📦 Order</button>
+  <button onclick="showTab('history')" class="mgr-tab">📅 History</button>
+  <button onclick="showTab('catalog')" class="mgr-tab">⚙️ Catalog</button>
+</div>
+
+<!-- ══ DAILY ENTRY ══ -->
+<div class="panel active" id="panel-daily">
+  <div class="top-bar">
+    <label>Date:</label>
+    <input type="date" id="entry-date" onchange="onDateChange()">
+    <label style="margin-left:8px">Staff:</label>
+    <input type="text" id="entry-staff" placeholder="Name (optional)"
+      style="max-width:180px"
+      oninput="localStorage.setItem('bk_staff',this.value)">
+    <span id="entry-progress" style="margin-left:auto;font-size:.8rem;color:var(--muted)"></span>
+  </div>
+  <div class="entry-wrap">
+    <div id="daily-body">
+      <div style="padding:40px;text-align:center;color:var(--muted)">Loading items…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ORDER ══ -->
+<div class="panel" id="panel-order">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+    <button class="btn btn-success" onclick="sendOrder()">✉️ Email Order to Russell's</button>
+    <button class="btn btn-primary" onclick="window.print()">🖨 Print Order</button>
+    <span id="order-date-label" style="font-size:.82rem;color:var(--muted);margin-left:4px"></span>
+  </div>
+  <div id="order-body">
+    <div class="no-order">Save today's counts first, then come back to generate the order.</div>
+  </div>
+</div>
+
+<!-- ══ HISTORY ══ -->
+<div class="panel" id="panel-history">
+  <div class="filter-bar">
+    <label>From:</label><input type="date" id="hist-from">
+    <label>To:</label><input type="date" id="hist-to">
+    <label>Item:</label><input type="text" id="hist-item" placeholder="All items" style="width:150px">
+    <button class="btn btn-primary btn-sm" onclick="loadHistory()">Load</button>
+    <button class="btn btn-sm" style="background:#555;color:#fff" onclick="downloadHistoryCSV()">⬇ Export CSV</button>
+  </div>
+  <div id="history-body">
+    <div style="padding:32px;text-align:center;color:var(--muted)">Set a date range and click Load.</div>
+  </div>
+</div>
+
+<!-- ══ CATALOG ══ -->
+<div class="panel" id="panel-catalog">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+    <button class="btn btn-success btn-sm" onclick="openAddModal()">+ Add Item</button>
+    <input type="text" id="cat-search" placeholder="Search…"
+      style="flex:1;min-width:130px;border:1.5px solid var(--border);border-radius:var(--radius);
+             padding:7px 12px;font-size:.9rem;background:#fff;box-shadow:var(--shadow)"
+      oninput="renderCatalog()">
+    <select id="cat-cat-filter"
+      style="border:1.5px solid var(--border);border-radius:var(--radius);
+             padding:7px 10px;font-size:.85rem;background:#fff"
+      onchange="renderCatalog()">
+      <option value="">All categories</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:5px;font-size:.82rem;
+      font-weight:600;color:var(--navy);white-space:nowrap;cursor:pointer">
+      <input type="checkbox" id="cat-show-inactive" onchange="renderCatalog()">
+      Show inactive
+    </label>
+  </div>
+  <div id="catalog-body">
+    <div style="padding:32px;text-align:center;color:var(--muted)">Loading catalog…</div>
+  </div>
+</div>
+
+<!-- ══ ADD/EDIT MODAL ══ -->
+<div id="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-hdr">
+      <span id="modal-title">Add Item</span>
+      <button onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-grid">
+        <div class="full-col">
+          <label class="modal-lbl">Item Name *</label>
+          <input id="m-name" class="modal-inp" type="text">
+        </div>
+        <div class="full-col">
+          <label class="modal-lbl">Category *</label>
+          <select id="m-cat" class="modal-inp">
+            <option value="">— select —</option>
+            <option>Pastries</option><option>Bagels</option><option>Dairy</option>
+            <option>Cookies</option><option>Brownies</option>
+            <option>Cheese</option><option>Meats</option>
+          </select>
+        </div>
+        <div>
+          <label class="modal-lbl">Vendor</label>
+          <input id="m-vendor" class="modal-inp" type="text" placeholder="e.g. Russells">
+        </div>
+        <div>
+          <label class="modal-lbl">SKU</label>
+          <input id="m-sku" class="modal-inp" type="text" style="font-family:monospace">
+        </div>
+        <div>
+          <label class="modal-lbl">PAR</label>
+          <input id="m-par" class="modal-inp" type="number" min="0" step="1" placeholder="0">
+        </div>
+        <div>
+          <label class="modal-lbl">Price ($)</label>
+          <input id="m-price" class="modal-inp" type="number" min="0" step="0.01" placeholder="0.00">
+        </div>
+        <div class="full-col">
+          <label class="modal-lbl">Packaging</label>
+          <input id="m-packaging" class="modal-inp" type="text" placeholder="e.g. Each, Box, Dozen">
+        </div>
+        <div class="full-col" style="display:flex;align-items:center;gap:8px">
+          <input id="m-active" type="checkbox" checked style="width:16px;height:16px;cursor:pointer">
+          <label for="m-active" style="font-size:.88rem;font-weight:600;cursor:pointer">
+            Active — appears in daily entry</label>
+        </div>
+      </div>
+      <div id="modal-err" class="modal-err"></div>
+      <div class="modal-footer">
+        <button onclick="closeModal()" class="btn btn-sm"
+          style="background:#eee;color:#333">Cancel</button>
+        <button onclick="saveItem()" class="btn btn-primary btn-sm"
+          id="modal-save-btn">Save Item</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SAVE BAR ══ -->
+<div class="save-bar" id="save-bar">
+  <button class="btn btn-primary" onclick="saveDaily()">💾 Save Daily Records</button>
+  <button class="btn btn-warning" onclick="showTab('order')">📦 View Order</button>
+</div>
+
+<script>
+// ── Configuration ──────────────────────────────────────────────────────────────
+const SUPABASE_URL = window.SUPABASE_URL || 'YOUR_SUPABASE_URL';
+const SUPABASE_KEY = window.SUPABASE_KEY || 'YOUR_SUPABASE_ANON_KEY';
+
+const PINS = {
+  '1234': 'staff',
+  '9876': 'manager',
+  '5432': 'manager',
+};
+const MANAGER_TABS = new Set(['history', 'catalog']);
+const BAKER_EMAIL  = 'wholesale@russellsbakery.com';
+const BAKER_CC     = 'lara@austingrind.com';
+
+// ── State ──────────────────────────────────────────────────────────────────────
+let userRole    = null;
+let catalogData = [];
+let dailyData   = {};   // item_id -> { amt_received, sample_count, throwaway }
+let priorData   = {};   // item_id -> prior closing_inventory
+let historyData = {};   // item_id -> yesterday's record (for 1-day comparison)
+
+// ── Auth ───────────────────────────────────────────────────────────────────────
+function submitPin() {
+  const pin  = document.getElementById('pin-input').value.trim();
+  const role = PINS[pin];
+  if (!role) {
+    const inp = document.getElementById('pin-input');
+    inp.classList.add('shake');
+    document.getElementById('pin-err').textContent = 'Incorrect PIN — try again';
+    inp.value = '';
+    setTimeout(() => inp.classList.remove('shake'), 400);
+    return;
+  }
+  userRole = role;
+  localStorage.setItem('bk_role', role);
+  localStorage.setItem('bk_pin_hash', btoa(pin));
+  document.getElementById('login-screen').style.display = 'none';
+  applyRoleUI();
+  initApp();
+}
+
+function checkSession() {
+  const savedRole = localStorage.getItem('bk_role');
+  const savedHash = localStorage.getItem('bk_pin_hash');
+  if (!savedRole || !savedHash) return false;
+  try {
+    const pin = atob(savedHash);
+    if (PINS[pin] === savedRole) { userRole = savedRole; return true; }
+  } catch(e) {}
+  return false;
+}
+
+function applyRoleUI() {
+  const buttons  = document.querySelectorAll('#tab-bar button');
+  const tabNames = ['daily','order','history','catalog'];
+  buttons.forEach((btn, i) => {
+    const tab = tabNames[i];
+    btn.style.display = (MANAGER_TABS.has(tab) && userRole !== 'manager') ? 'none' : '';
+  });
+  document.getElementById('signout-btn').style.display = '';
+  if (userRole === 'manager') {
+    const hdr = document.getElementById('hdr-date');
+    if (!hdr.querySelector('.mgr-badge')) {
+      hdr.insertAdjacentHTML('beforeend',
+        ' <span class="mgr-badge" style="background:#f39c12;color:#fff;font-size:.62rem;' +
+        'font-weight:700;border-radius:3px;padding:1px 6px;vertical-align:middle">MANAGER</span>');
+    }
+  }
+}
+
+function signOut() {
+  if (!confirm('Sign out?')) return;
+  userRole = null;
+  localStorage.removeItem('bk_role');
+  localStorage.removeItem('bk_pin_hash');
+  document.getElementById('pin-input').value = '';
+  document.getElementById('pin-err').textContent = '';
+  document.getElementById('signout-btn').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  showTab('daily');
+}
+
+// ── Supabase helpers ───────────────────────────────────────────────────────────
+function supaHeaders() {
+  return { 'Content-Type':'application/json',
+    'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY };
+}
+
+function updateBadge(state) {
+  const b = document.getElementById('sync-badge');
+  b.className = 'sync-badge';
+  if (state === 'ok')      { b.textContent = '✓ Saved';  b.classList.add('ok'); }
+  else if (state === 'err')     { b.textContent = '✗ Error';  b.classList.add('err'); }
+  else if (state === 'saving')  { b.textContent = 'Saving…'; b.classList.add('saving'); }
+  else { b.textContent = '—'; }
+}
+
+function toast(msg, dur=2400) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+window.onload = () => {
+  if (checkSession()) {
+    document.getElementById('login-screen').style.display = 'none';
+    applyRoleUI();
+    initApp();
+  } else {
+    document.getElementById('pin-input').focus();
+  }
+};
+
+function initApp() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('entry-date').value = today;
+  const ss = localStorage.getItem('bk_staff');
+  if (ss) document.getElementById('entry-staff').value = ss;
+
+  const threeMonths = new Date();
+  threeMonths.setMonth(threeMonths.getMonth() - 3);
+  document.getElementById('hist-from').value = threeMonths.toISOString().split('T')[0];
+  document.getElementById('hist-to').value   = today;
+
+  updateHeaderDate(today);
+  loadCatalogAndDaily();
+}
+
+function showTab(tab) {
+  if (MANAGER_TABS.has(tab) && userRole !== 'manager') {
+    toast('Manager access required'); return;
+  }
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#tab-bar button').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  const idx = ['daily','order','history','catalog'].indexOf(tab);
+  document.querySelectorAll('#tab-bar button')[idx].classList.add('active');
+  if (tab === 'order')   renderOrder();
+  if (tab === 'catalog') renderCatalog();
+}
+
+function updateHeaderDate(dateStr) {
+  const lbl = dateStr
+    ? new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US',
+        { weekday:'short', month:'short', day:'numeric', year:'numeric' })
+    : '—';
+  const hdr = document.getElementById('hdr-date');
+  // Preserve manager badge if present
+  const badge = hdr.querySelector('.mgr-badge');
+  hdr.textContent = lbl;
+  if (badge) hdr.appendChild(badge);
+}
+
+function onDateChange() {
+  const d = document.getElementById('entry-date').value;
+  updateHeaderDate(d);
+  loadCatalogAndDaily();
+}
+
+// ── Load catalog + daily data ──────────────────────────────────────────────────
+async function loadCatalogAndDaily() {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+    document.getElementById('daily-body').innerHTML =
+      '<div style="padding:32px;text-align:center;color:var(--muted)">Configure Supabase credentials.</div>';
+    return;
+  }
+  const date = document.getElementById('entry-date').value;
+  if (!date) return;
+
+  // Compute prior date (previous day that has records)
+  const dateObj  = new Date(date + 'T12:00:00');
+  const priorObj = new Date(dateObj);
+  priorObj.setDate(priorObj.getDate() - 1);
+
+  try {
+    // 1. Fetch active catalog
+    const catRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/bakery_catalog?active=eq.true` +
+      `&order=sort_order.asc,item_order.asc&limit=200`,
+      { headers: supaHeaders() }
+    );
+    catalogData = await catRes.json();
+
+    // 2. Fetch today's existing records (if re-opening a saved day)
+    const todayRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/bakery_daily?record_date=eq.${date}&limit=300`,
+      { headers: supaHeaders() }
+    );
+    const todayRecords = await todayRes.json();
+
+    // 3. Fetch prior day's closing inventory (for prior_inventory column)
+    // Look back up to 7 days to find the most recent day with data
+    const lookbackDate = new Date(dateObj);
+    lookbackDate.setDate(lookbackDate.getDate() - 7);
+    const priorRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/bakery_daily` +
+      `?record_date=lt.${date}&record_date=gte.${lookbackDate.toISOString().split('T')[0]}` +
+      `&order=record_date.desc&limit=300`,
+      { headers: supaHeaders() }
+    );
+    const priorRecords = await priorRes.json();
+
+    // Build priorData: most recent closing_inventory per item
+    priorData = {};
+    for (const r of priorRecords) {
+      if (priorData[r.item_id] === undefined) {
+        priorData[r.item_id] = r.closing_inventory ?? 0;
+      }
+    }
+
+    // Build dailyData from today's saved records
+    dailyData = {};
+    for (const r of todayRecords) {
+      dailyData[r.item_id] = {
+        id:           r.id,
+        amt_received: r.amt_received  ?? 0,
+        sample_count: r.sample_count  ?? 0,
+        throwaway:    r.throwaway     ?? 0,
+        order_qty:    r.order_qty     ?? null,
+      };
+    }
+
+    // Build historyData: prior day full records for comparison
+    historyData = {};
+    const priorDate = priorRecords.length
+      ? priorRecords[0].record_date.substring(0,10) : null;
+    if (priorDate) {
+      for (const r of priorRecords) {
+        if (r.record_date.substring(0,10) === priorDate) {
+          historyData[r.item_id] = r;
+        }
+      }
+    }
+
+    renderDailyForm(priorDate);
+  } catch(e) {
+    console.error(e);
+    document.getElementById('daily-body').innerHTML =
+      '<div style="padding:32px;text-align:center;color:var(--red)">Error loading data.</div>';
+  }
+}
+
+// ── Render daily entry form ────────────────────────────────────────────────────
+function renderDailyForm(priorDate) {
+  const priorLbl = priorDate
+    ? new Date(priorDate + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})
+    : 'Prior';
+
+  let html = `<table class="entry-table">
+    <thead>
+      <tr>
+        <th style="text-align:left;min-width:180px">Item</th>
+        <th>Prior<br><span style="font-weight:400;opacity:.8;font-size:.65rem">${priorLbl} Close</span></th>
+        <th>Amt<br>Received</th>
+        <th>Opening<br>Inv</th>
+        <th>Sample<br>Count</th>
+        <th>Throw<br>Away</th>
+        <th>Closing<br>Inv</th>
+        <th style="background:#2a5a3c">Order<br><span style="font-weight:400;font-size:.62rem;opacity:.85">auto / override</span></th>
+        ${priorDate ? `<th style="opacity:.7">Prev<br>Closing</th>` : ''}
+      </tr>
+    </thead><tbody>`;
+
+  // Group by category
+  const groups = {}, groupOrder = [];
+  for (const item of catalogData) {
+    if (!groups[item.category]) { groups[item.category] = []; groupOrder.push(item.category); }
+    groups[item.category].push(item);
+  }
+
+  let enteredCount = 0;
+  let totalActive  = catalogData.length;
+
+  for (const cat of groupOrder) {
+    html += `<tr class="cat-row"><td colspan="${priorDate ? 8 : 7}">${cat}</td></tr>`;
+    for (const item of groups[cat]) {
+      const d     = dailyData[item.id] || { amt_received:0, sample_count:0, throwaway:0 };
+      const prior = priorData[item.id] ?? 0;
+      const open  = prior + (d.amt_received || 0);
+      const close = open  - (d.sample_count || 0) - (d.throwaway || 0);
+      const prevClose = historyData[item.id]?.closing_inventory ?? null;
+      const hasEntry  = dailyData[item.id] !== undefined;
+      if (hasEntry) enteredCount++;
+
+      const closeLow  = close < item.par && item.par > 0;
+      const autoOrder = item.par > 0 ? Math.max(item.par - close, 0) : 0;
+
+      html += `<tr data-item-id="${item.id}">
+        <td class="item-name-cell">
+          <div class="item-name">${item.name}</div>
+          ${item.sku ? `<div class="item-sku">${item.sku}</div>` : ''}
+        </td>
+        <td class="prior-cell">${prior}</td>
+        <td style="text-align:center">
+          <input class="entry-input ${hasEntry?'filled':''}"
+            type="number" min="0" step="1"
+            value="${d.amt_received || ''}"
+            placeholder="0"
+            data-field="amt_received" data-item="${item.id}"
+            oninput="onEntryInput(this)"
+            onkeydown="handleEntryKey(event,this)"
+            onpaste="pasteNum(event)">
+        </td>
+        <td class="calc-cell" id="open-${item.id}">${open}</td>
+        <td style="text-align:center">
+          <input class="entry-input ${hasEntry?'filled':''}"
+            type="number" min="0" step="1"
+            value="${d.sample_count || ''}"
+            placeholder="0"
+            data-field="sample_count" data-item="${item.id}"
+            oninput="onEntryInput(this)"
+            onkeydown="handleEntryKey(event,this)"
+            onpaste="pasteNum(event)">
+        </td>
+        <td style="text-align:center">
+          <input class="entry-input ${hasEntry?'filled':''}"
+            type="number" min="0" step="1"
+            value="${d.throwaway || ''}"
+            placeholder="0"
+            data-field="throwaway" data-item="${item.id}"
+            oninput="onEntryInput(this)"
+            onkeydown="handleEntryKey(event,this)"
+            onpaste="pasteNum(event)">
+        </td>
+        <td class="calc-cell ${closeLow?'low':''}" id="close-${item.id}">${close}</td>
+        <td style="text-align:center">
+          <input class="entry-input order-input ${d.order_qty !== undefined && d.order_qty !== null ? 'filled order-overridden' : ''}"
+            type="number" min="0" step="1"
+            value="${d.order_qty !== undefined && d.order_qty !== null ? d.order_qty : autoOrder}"
+            placeholder="${autoOrder > 0 ? autoOrder : '—'}"
+            data-field="order_qty" data-item="${item.id}" data-auto="${autoOrder}"
+            oninput="onOrderInput(this)"
+            onkeydown="handleEntryKey(event,this)"
+            onpaste="pasteNum(event)"
+            title="Auto: ${autoOrder}. Edit to override.">
+        </td>
+        ${priorDate ? `<td class="prior-cell">${prevClose !== null ? prevClose : '—'}</td>` : ''}
+      </tr>`;
+    }
+  }
+
+  html += '</tbody></table>';
+  document.getElementById('daily-body').innerHTML = html;
+
+  // Update progress
+  document.getElementById('entry-progress').textContent =
+    `${enteredCount} / ${totalActive} items entered`;
+
+  // Build input list for keyboard nav
+  buildInputList();
+}
+
+// ── Input list for keyboard nav ────────────────────────────────────────────────
+let inputList = [];
+function buildInputList() {
+  inputList = Array.from(document.querySelectorAll('.entry-input'));
+}
+
+function handleEntryKey(e, input) {
+  const ctrl  = e.ctrlKey || e.metaKey;
+  const nav   = ['Backspace','Delete','Tab','Enter','ArrowLeft','ArrowRight',
+                  'ArrowUp','ArrowDown','Home','End'].includes(e.key);
+  const digit = /^\d$/.test(e.key);
+  const dot   = e.key === '.' && !input.value.includes('.');
+  if (!ctrl && !nav && !digit && !dot) e.preventDefault();
+
+  const idx = inputList.indexOf(input);
+  if (idx === -1) return;
+  let next = -1;
+  if      (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); next = idx+1; }
+  else if (e.key==='Enter' &&  e.shiftKey) { e.preventDefault(); next = idx-1; }
+  else if (e.key==='Tab'   && !e.shiftKey) { e.preventDefault(); next = idx+1; }
+  else if (e.key==='Tab'   &&  e.shiftKey) { e.preventDefault(); next = idx-1; }
+  else if (e.key==='ArrowDown')             { e.preventDefault(); next = idx+3; } // jump to same field next row
+  else if (e.key==='ArrowUp')               { e.preventDefault(); next = idx-3; }
+  if (next >= 0 && next < inputList.length) {
+    inputList[next].focus();
+    inputList[next].select();
+    inputList[next].closest('tr')?.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }
+}
+
+function pasteNum(e) {
+  e.preventDefault();
+  const pasted = (e.clipboardData||window.clipboardData).getData('text');
+  const clean  = (pasted.match(/\d*\.?\d*/) || [''])[0];
+  if (clean) { e.target.value = clean; onEntryInput(e.target); }
+}
+
+function onEntryInput(input) {
+  // Sanitize
+  let val = input.value.replace(/[^0-9.]/g,'');
+  const parts = val.split('.');
+  if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('');
+  if (input.value !== val) input.value = val;
+
+  const itemId = parseInt(input.getAttribute('data-item'));
+  const field  = input.getAttribute('data-field');
+  const num    = parseFloat(val) || 0;
+
+  if (!dailyData[itemId]) dailyData[itemId] = { amt_received:0, sample_count:0, throwaway:0 };
+  dailyData[itemId][field] = num;
+  input.classList.toggle('filled', val !== '');
+
+  updateCalcCells(itemId);
+  updateProgress();
+}
+
+function onOrderInput(input) {
+  let val = input.value.replace(/[^0-9.]/g,'');
+  if (input.value !== val) input.value = val;
+  const itemId  = parseInt(input.getAttribute('data-item'));
+  const autoVal = parseInt(input.getAttribute('data-auto')) || 0;
+  const num     = val === '' ? null : (parseFloat(val) || 0);
+
+  if (!dailyData[itemId]) dailyData[itemId] = { amt_received:0, sample_count:0, throwaway:0 };
+  dailyData[itemId].order_qty = num;
+
+  // Visual: orange if overridden from auto, green if matches auto or cleared
+  const isOverride = num !== null && num !== autoVal;
+  input.classList.toggle('order-overridden', isOverride);
+  input.classList.toggle('filled', num !== null);
+}
+
+function updateCalcCells(itemId) {
+  const d     = dailyData[itemId] || {};
+  const prior = priorData[itemId] ?? 0;
+  const open  = prior + (d.amt_received || 0);
+  const close = open  - (d.sample_count || 0) - (d.throwaway || 0);
+  const item  = catalogData.find(i => i.id === itemId);
+
+  const openEl  = document.getElementById(`open-${itemId}`);
+  const closeEl = document.getElementById(`close-${itemId}`);
+  if (openEl)  openEl.textContent  = open;
+  if (closeEl) {
+    closeEl.textContent = close;
+    closeEl.classList.toggle('low', close < (item?.par||0) && (item?.par||0) > 0);
+  }
+}
+
+function updateProgress() {
+  const entered = Object.keys(dailyData).length;
+  document.getElementById('entry-progress').textContent =
+    `${entered} / ${catalogData.length} items entered`;
+}
+
+// ── Save daily records ─────────────────────────────────────────────────────────
+async function saveDaily() {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') { toast('Configure Supabase first'); return; }
+  const date  = document.getElementById('entry-date').value;
+  const staff = document.getElementById('entry-staff').value || null;
+  if (!date) { toast('Set a date first'); return; }
+  if (!Object.keys(dailyData).length) { toast('No entries to save'); return; }
+
+  updateBadge('saving');
+
+  const rows = [];
+  for (const item of catalogData) {
+    const d = dailyData[item.id];
+    if (!d) continue;
+    const prior = priorData[item.id] ?? 0;
+    rows.push({
+      record_date:    date,
+      item_id:        item.id,
+      item_name:      item.name,
+      category:       item.category,
+      prior_inventory: prior,
+      amt_received:   d.amt_received  || 0,
+      sample_count:   d.sample_count  || 0,
+      throwaway:      d.throwaway     || 0,
+      submitted_by:   staff,
+    });
+  }
+
+  try {
+    // Upsert — delete existing for this date then insert fresh
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/bakery_daily?record_date=eq.${date}`,
+      { method:'DELETE', headers: supaHeaders() }
+    );
+    for (let i = 0; i < rows.length; i += 50) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/bakery_daily`, {
+        method: 'POST',
+        headers: { ...supaHeaders(), 'Prefer': 'return=minimal' },
+        body: JSON.stringify(rows.slice(i, i+50)),
+      });
+      if (!res.ok) throw new Error(await res.text());
+    }
+    updateBadge('ok');
+    toast(`✓ ${rows.length} records saved for ${date}`);
+    // Refresh to pick up generated column values
+    await loadCatalogAndDaily();
+  } catch(e) {
+    updateBadge('err');
+    toast('⚠ Save failed — check console');
+    console.error(e);
+  }
+}
+
+// ── Order tab ──────────────────────────────────────────────────────────────────
+function renderOrder() {
+  const date = document.getElementById('entry-date').value;
+  document.getElementById('order-date-label').textContent =
+    date ? `Based on ${date} closing inventory` : '';
+
+  // Items where closing < PAR (needs ordering)
+  const orderItems = catalogData.filter(item => {
+    const d = dailyData[item.id];
+    if (!d) return false;
+    const prior   = priorData[item.id] ?? 0;
+    const close   = prior + (d.amt_received||0) - (d.sample_count||0) - (d.throwaway||0);
+    const autoOrd = item.par > 0 ? Math.max(item.par - close, 0) : 0;
+    const orderQty = d.order_qty !== undefined && d.order_qty !== null ? d.order_qty : autoOrd;
+    return orderQty > 0;
+  });
+
+  if (!orderItems.length) {
+    document.getElementById('order-body').innerHTML =
+      `<div class="no-order">
+        <div style="font-size:2.5rem;margin-bottom:8px">✅</div>
+        <strong>Nothing to order!</strong>
+        <div style="margin-top:6px;color:#999">All items are above PAR.</div>
+      </div>`;
+    return;
+  }
+
+  // Group by vendor
+  const byVendor = {};
+  for (const item of orderItems) {
+    const d     = dailyData[item.id];
+    const prior = priorData[item.id] ?? 0;
+    const close = prior + (d.amt_received||0) - (d.sample_count||0) - (d.throwaway||0);
+    const needed = item.par - close;
+    if (!byVendor[item.vendor]) byVendor[item.vendor] = [];
+    const autoOrd2  = item.par > 0 ? Math.max(item.par - close, 0) : 0;
+    const orderQty2 = d.order_qty !== undefined && d.order_qty !== null ? d.order_qty : autoOrd2;
+    const isOverride2 = d.order_qty !== undefined && d.order_qty !== null && d.order_qty !== autoOrd2;
+    byVendor[item.vendor].push({ ...item, closing: close, needed: orderQty2, autoOrder: autoOrd2, isOverride: isOverride2 });
+  }
+
+  let html = '';
+  for (const [vendor, items] of Object.entries(byVendor).sort()) {
+    const total = items.reduce((s,i) => s + (i.price > 0 ? i.needed * i.price : 0), 0);
+    html += `<div class="order-card">
+      <div class="order-hdr">
+        <span>📦 ${vendor}</span>
+        <span>${items.length} item${items.length>1?'s':''}</span>
+      </div>
+      <table class="order-table"><thead><tr>
+        <th>Item</th><th style="text-align:center">Closing</th>
+        <th style="text-align:center">PAR</th>
+        <th style="text-align:center">Qty Needed</th>
+        <th style="text-align:right">Price</th>
+        <th style="text-align:right">Total</th>
+      </tr></thead><tbody>`;
+    for (const item of items) {
+      const lt = item.price > 0 ? '$'+(item.needed*item.price).toFixed(2) : '—';
+      html += `<tr>
+        <td><strong>${item.name}</strong>
+          ${item.sku ? `<br><span style="font-size:.7rem;color:#999;font-family:monospace">${item.sku}</span>` : ''}
+        </td>
+        <td style="text-align:center;color:var(--red)">${item.closing}</td>
+        <td style="text-align:center">${item.par}</td>
+        <td style="text-align:center;font-weight:700;color:${item.isOverride?'var(--orange)':'var(--navy)'}">
+          ${item.needed}${item.isOverride ? ` <span title="Auto was ${item.autoOrder}" style="font-size:.65rem;opacity:.7">(manual)</span>` : ''}
+        </td>
+        <td style="text-align:right">${item.price>0?'$'+item.price.toFixed(2):'—'}</td>
+        <td style="text-align:right;font-weight:600">${lt}</td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+    if (total > 0)
+      html += `<div style="background:var(--navy);color:#fff;padding:10px 16px;
+        display:flex;justify-content:space-between;font-weight:700">
+        <span>Estimated Total</span><span>$${total.toFixed(2)}</span></div>`;
+    html += '</div>';
+  }
+
+  document.getElementById('order-body').innerHTML = html;
+  window._orderItems = orderItems;
+}
+
+function sendOrder() {
+  const date = document.getElementById('entry-date').value;
+  if (!window._orderItems || !window._orderItems.length) {
+    renderOrder();
+    if (!window._orderItems?.length) { toast('No items to order'); return; }
+  }
+
+  const dateFmt = date
+    ? new Date(date+'T12:00:00').toLocaleDateString('en-US',
+        {month:'numeric',day:'numeric',year:'numeric'})
+    : date;
+
+  // Build order body grouped by vendor
+  const byVendor = {};
+  for (const item of window._orderItems) {
+    const d     = dailyData[item.id];
+    const prior = priorData[item.id] ?? 0;
+    const close = prior + (d.amt_received||0) - (d.sample_count||0) - (d.throwaway||0);
+    const needed = item.par - close;
+    if (!byVendor[item.vendor]) byVendor[item.vendor] = [];
+    const autoOrd2  = item.par > 0 ? Math.max(item.par - close, 0) : 0;
+    const orderQty2 = d.order_qty !== undefined && d.order_qty !== null ? d.order_qty : autoOrd2;
+    const isOverride2 = d.order_qty !== undefined && d.order_qty !== null && d.order_qty !== autoOrd2;
+    byVendor[item.vendor].push({ ...item, closing: close, needed: orderQty2, autoOrder: autoOrd2, isOverride: isOverride2 });
+  }
+
+  let body = `Austin Grind — Bakery Order for ${dateFmt}\n\n`;
+  for (const [vendor, items] of Object.entries(byVendor).sort()) {
+    body += `${vendor.toUpperCase()}\n${'─'.repeat(40)}\n`;
+    for (const item of items) {
+      body += `  ${item.name.padEnd(35)} Qty: ${item.needed}`;
+      if (item.price > 0) body += `  ($${(item.needed * item.price).toFixed(2)})`;
+      body += '\n';
+    }
+    body += '\n';
+  }
+  body += `Please confirm receipt of this order.\nThank you!`;
+
+  const subject  = encodeURIComponent(`It's A Grind Coffee House - Bakery Order ${dateFmt}`);
+  const bodyEnc  = encodeURIComponent(body);
+  const cc       = encodeURIComponent(BAKER_CC);
+  window.location.href =
+    `mailto:${BAKER_EMAIL}?cc=${cc}&subject=${subject}&body=${bodyEnc}`;
+}
+
+// ── History ────────────────────────────────────────────────────────────────────
+async function loadHistory() {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return;
+  const from = document.getElementById('hist-from').value;
+  const to   = document.getElementById('hist-to').value;
+  const item = document.getElementById('hist-item').value.trim();
+
+  let url = `${SUPABASE_URL}/rest/v1/bakery_daily`
+    + `?select=record_date,item_name,category,prior_inventory,amt_received,`
+    + `opening_inventory,sample_count,throwaway,closing_inventory,submitted_by`
+    + `&record_date=gte.${from}&record_date=lte.${to}`
+    + `&order=record_date.desc,category.asc,item_name.asc&limit=2000`;
+  if (item) url += `&item_name=ilike.*${encodeURIComponent(item)}*`;
+
+  document.getElementById('history-body').innerHTML =
+    '<div style="padding:24px;text-align:center;color:var(--muted)">Loading…</div>';
+
+  try {
+    const data = await fetch(url, { headers: supaHeaders() }).then(r => r.json());
+    if (!Array.isArray(data) || !data.length) {
+      document.getElementById('history-body').innerHTML =
+        '<div style="padding:32px;text-align:center;color:var(--muted)">No records found.</div>';
+      return;
+    }
+    window._histData = data;
+    let html = `<div style="overflow-x:auto"><table class="hist-table"><thead><tr>
+      <th>Date</th><th>Item</th><th>Category</th>
+      <th style="text-align:center">Prior</th>
+      <th style="text-align:center">Received</th>
+      <th style="text-align:center">Opening</th>
+      <th style="text-align:center">Sample</th>
+      <th style="text-align:center">Throwaway</th>
+      <th style="text-align:center">Closing</th>
+      <th>Staff</th>
+    </tr></thead><tbody>`;
+    for (const r of data) {
+      const dateStr = r.record_date ? String(r.record_date).substring(0,10) : '';
+      html += `<tr>
+        <td>${dateStr}</td>
+        <td><strong>${r.item_name}</strong></td>
+        <td style="font-size:.75rem;color:var(--muted)">${r.category||''}</td>
+        <td style="text-align:center">${r.prior_inventory??0}</td>
+        <td style="text-align:center">${r.amt_received??0}</td>
+        <td style="text-align:center;font-weight:600">${r.opening_inventory??0}</td>
+        <td style="text-align:center">${r.sample_count??0}</td>
+        <td style="text-align:center">${r.throwaway??0}</td>
+        <td style="text-align:center;font-weight:700;color:var(--navy)">${r.closing_inventory??0}</td>
+        <td style="font-size:.75rem;color:var(--muted)">${r.submitted_by||'—'}</td>
+      </tr>`;
+    }
+    html += `</tbody></table></div>
+      <div style="padding:8px 4px;font-size:.75rem;color:var(--muted)">${data.length} records</div>`;
+    document.getElementById('history-body').innerHTML = html;
+  } catch(e) {
+    document.getElementById('history-body').innerHTML =
+      '<div style="padding:32px;text-align:center;color:var(--red)">Error loading history.</div>';
+    console.error(e);
+  }
+}
+
+function downloadHistoryCSV() {
+  const data = window._histData;
+  if (!data?.length) { toast('Load history first'); return; }
+  const cols = ['record_date','item_name','category','prior_inventory',
+    'amt_received','opening_inventory','sample_count','throwaway','closing_inventory','submitted_by'];
+  let csv = cols.join(',') + '\n';
+  for (const r of data) {
+    csv += cols.map(c => {
+      const v = r[c] ?? '';
+      return typeof v === 'string' && v.includes(',') ? `"${v}"` : v;
+    }).join(',') + '\n';
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = `AG-Bakery-${document.getElementById('hist-from').value}.csv`;
+  a.click();
+}
+
+// ── Catalog ────────────────────────────────────────────────────────────────────
+function renderCatalog() {
+  const q          = (document.getElementById('cat-search')?.value||'').toLowerCase();
+  const catFilt    = document.getElementById('cat-cat-filter')?.value||'';
+  const showInact  = document.getElementById('cat-show-inactive')?.checked||false;
+
+  // Populate category filter
+  const catSel = document.getElementById('cat-cat-filter');
+  if (catSel && catSel.options.length <= 1) {
+    const cats = [...new Set(catalogData.map(i => i.category))].sort();
+    cats.forEach(c => catSel.insertAdjacentHTML('beforeend',
+      `<option value="${c}">${c}</option>`));
+  }
+
+  let filtered = catalogData.filter(item => {
+    if (!showInact && !item.active) return false;
+    if (catFilt && item.category !== catFilt) return false;
+    if (q && !item.name.toLowerCase().includes(q) &&
+             !item.category.toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a,b) => (a.sort_order-b.sort_order)||(a.item_order-b.item_order));
+
+  if (!filtered.length) {
+    document.getElementById('catalog-body').innerHTML =
+      '<div style="padding:40px;text-align:center;color:var(--muted)">No items match.</div>';
+    return;
+  }
+
+  const groups={}, groupOrder=[];
+  for (const item of filtered) {
+    if (!groups[item.category]) { groups[item.category]=[]; groupOrder.push(item.category); }
+    groups[item.category].push(item);
+  }
+
+  let html = `<div class="cat-col-hdr">
+    <span>Item</span>
+    <span style="font-family:monospace">SKU</span>
+    <span>Vendor</span>
+    <span style="text-align:center">PAR</span>
+    <span style="text-align:right">Price</span>
+    <span style="text-align:center">Active</span>
+    <span></span>
+  </div>`;
+
+  for (const cat of groupOrder) {
+    const items   = groups[cat];
+    const activeN = items.filter(i=>i.active).length;
+    html += `<div class="cat-group-hdr">
+      <span>${cat}</span>
+      <span style="font-weight:500;opacity:.8">${activeN}/${items.length} active</span>
+    </div><div style="border-radius:0 0 var(--radius) var(--radius);overflow:hidden">`;
+    for (const item of items) {
+      const cls   = item.active ? '' : ' inactive';
+      const icon  = item.active ? '✅' : '⬜';
+      const price = item.price > 0 ? '$'+parseFloat(item.price).toFixed(2) : '—';
+      html += `<div class="cat-item-row${cls}">
+        <div>
+          <span style="font-weight:600">${item.name}</span>
+          ${item.packaging ? `<span style="font-size:.72rem;color:var(--muted);margin-left:5px">${item.packaging}</span>` : ''}
+        </div>
+        <div style="font-family:monospace;font-size:.75rem;color:var(--navy);font-weight:700">${item.sku||'—'}</div>
+        <div style="font-size:.82rem;color:var(--muted)">${item.vendor||'—'}</div>
+        <div style="text-align:center;font-weight:700;color:var(--navy)">${item.par||0}</div>
+        <div style="text-align:right;font-size:.82rem">${price}</div>
+        <div style="text-align:center">
+          <button class="toggle-btn" onclick="toggleActive(${item.id},${item.active})">${icon}</button>
+        </div>
+        <div><button class="edit-btn" onclick="openEditModal(${item.id})">Edit</button></div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+  html += `<div style="padding:8px 4px;font-size:.75rem;color:var(--muted)">
+    ${filtered.length} items shown</div>`;
+  document.getElementById('catalog-body').innerHTML = html;
+}
+
+async function toggleActive(id, current) {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+    const item = catalogData.find(i=>i.id===id);
+    if (item) item.active = !current;
+    renderCatalog(); return;
+  }
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/bakery_catalog?id=eq.${id}`, {
+      method:'PATCH', headers:{...supaHeaders(),'Prefer':'return=minimal'},
+      body: JSON.stringify({active:!current}),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const item = catalogData.find(i=>i.id===id);
+    if (item) item.active = !current;
+    renderCatalog();
+    toast(!current ? 'Item activated' : 'Item deactivated');
+    // Reload daily form
+    if (document.getElementById('panel-daily').classList.contains('active')) {
+      await loadCatalogAndDaily();
+    }
+  } catch(e) { toast('⚠ Update failed'); console.error(e); }
+}
+
+// ── Catalog modal ──────────────────────────────────────────────────────────────
+let editingId = null;
+
+function openAddModal() {
+  editingId = null;
+  document.getElementById('modal-title').textContent = 'Add Item';
+  document.getElementById('modal-save-btn').textContent = 'Add Item';
+  document.getElementById('modal-save-btn').disabled = false;
+  document.getElementById('modal-err').style.display = 'none';
+  ['m-name','m-vendor','m-sku','m-packaging'].forEach(id =>
+    document.getElementById(id).value = '');
+  document.getElementById('m-par').value   = 0;
+  document.getElementById('m-price').value = 0;
+  document.getElementById('m-cat').value   = '';
+  document.getElementById('m-active').checked = true;
+  document.getElementById('modal-overlay').style.display = 'block';
+  document.getElementById('m-name').focus();
+}
+
+function openEditModal(id) {
+  const item = catalogData.find(i => i.id === id);
+  if (!item) return;
+  editingId = id;
+  document.getElementById('modal-title').textContent = 'Edit Item';
+  document.getElementById('modal-save-btn').textContent = 'Save Changes';
+  document.getElementById('modal-save-btn').disabled = false;
+  document.getElementById('modal-err').style.display = 'none';
+  document.getElementById('m-name').value      = item.name;
+  document.getElementById('m-cat').value       = item.category;
+  document.getElementById('m-vendor').value    = item.vendor||'';
+  document.getElementById('m-sku').value       = item.sku||'';
+  document.getElementById('m-par').value       = item.par||0;
+  document.getElementById('m-price').value     = item.price||0;
+  document.getElementById('m-packaging').value = item.packaging||'';
+  document.getElementById('m-active').checked  = item.active!==false;
+  document.getElementById('modal-overlay').style.display = 'block';
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').style.display = 'none';
+  editingId = null;
+}
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+
+function showModalErr(msg) {
+  const el = document.getElementById('modal-err');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+async function saveItem() {
+  const name      = document.getElementById('m-name').value.trim();
+  const category  = document.getElementById('m-cat').value;
+  const vendor    = document.getElementById('m-vendor').value.trim();
+
+  if (!name)     { showModalErr('Item name is required.'); return; }
+  if (!category) { showModalErr('Category is required.'); return; }
+
+  const dup = catalogData.find(i =>
+    i.name.toLowerCase() === name.toLowerCase() && i.id !== editingId);
+  if (dup) { showModalErr(`"${name}" already exists.`); return; }
+
+  // Auto item_order
+  const catItems = catalogData.filter(i => i.category === category);
+  const catOrder = { Pastries:1, Bagels:2, Dairy:3, Cookies:4, Brownies:5, Cheese:6, Meats:7 };
+  const itemOrder = catItems.length
+    ? Math.max(...catItems.map(i => i.item_order||0)) + 1
+    : 1;
+
+  const payload = {
+    name, category,
+    sort_order: catOrder[category] || 99,
+    item_order: editingId ? (catalogData.find(i=>i.id===editingId)?.item_order||0) : itemOrder,
+    vendor,
+    sku:       document.getElementById('m-sku').value.trim(),
+    par:       parseFloat(document.getElementById('m-par').value)||0,
+    price:     parseFloat(document.getElementById('m-price').value)||0,
+    packaging: document.getElementById('m-packaging').value.trim(),
+    active:    document.getElementById('m-active').checked,
+  };
+
+  const btn = document.getElementById('modal-save-btn');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+    if (editingId) {
+      const idx = catalogData.findIndex(i=>i.id===editingId);
+      if (idx>=0) catalogData[idx] = {...catalogData[idx],...payload};
+    } else catalogData.push({id:Date.now(),...payload});
+    closeModal(); renderCatalog();
+    toast(editingId?'Item updated':'Item added'); return;
+  }
+
+  try {
+    let res;
+    if (editingId) {
+      const oldItem = catalogData.find(i=>i.id===editingId);
+      const nameChanged = oldItem && oldItem.name !== name;
+      res = await fetch(`${SUPABASE_URL}/rest/v1/bakery_catalog?id=eq.${editingId}`, {
+        method:'PATCH', headers:{...supaHeaders(),'Prefer':'return=representation'},
+        body:JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const [saved] = await res.json();
+      const idx = catalogData.findIndex(i=>i.id===editingId);
+      if (idx>=0) catalogData[idx] = saved;
+      // Cascade rename to bakery_daily history
+      if (nameChanged) {
+        await fetch(
+          `${SUPABASE_URL}/rest/v1/bakery_daily?item_id=eq.${editingId}`,
+          { method:'PATCH', headers:{...supaHeaders(),'Prefer':'return=minimal'},
+            body:JSON.stringify({item_name:name}) }
+        );
+        toast(`Item renamed ✓ — history updated`);
+      } else {
+        toast('Item updated ✓');
+      }
+    } else {
+      res = await fetch(`${SUPABASE_URL}/rest/v1/bakery_catalog`, {
+        method:'POST', headers:{...supaHeaders(),'Prefer':'return=representation'},
+        body:JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const [saved] = await res.json();
+      catalogData.push(saved);
+      toast('Item added ✓');
+    }
+    closeModal(); renderCatalog();
+    await loadCatalogAndDaily();
+  } catch(e) {
+    showModalErr('Save failed — ' + e.message); console.error(e);
+  } finally {
+    btn.textContent = editingId?'Save Changes':'Add Item'; btn.disabled=false;
+  }
+}
+</script>
+</body>
+</html>
