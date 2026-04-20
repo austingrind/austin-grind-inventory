@@ -767,14 +767,15 @@ function applyDailyCatFilter() {
 }
 
 function buildInputList() {
-  inputList = Array.from(document.querySelectorAll('.d-inp:not(.order), .entry-input:not(.order-input)'));
+  // Include all editable inputs: sample, throwaway, closing, order (desktop + mobile)
+  inputList = Array.from(document.querySelectorAll('.d-inp, .entry-input'));
 }
 function handleKey(e, input) {
   const idx = inputList.indexOf(input);
   if (idx === -1) return;
 
-  // Count how many editable inputs per row (sample, throwaway, closing, order = 4)
-  const COLS = 4;
+  // Count how many editable inputs per row (amt_received, sample, throwaway, closing, order = 5)
+  const COLS = 5;
   let next = -1;
 
   if (e.key === 'ArrowDown' || (e.key === 'Enter' && !e.shiftKey)) {
