@@ -412,7 +412,7 @@ function updateHeaderDate(d) {
   const hdr = document.getElementById('hdr-date');
   hdr.textContent = lbl;
 }
-function onDateChange() {
+async function onDateChange() {
   dailyData = {};
   priorData = {};
   priorOrderData = {};
@@ -420,7 +420,7 @@ function onDateChange() {
   updateHeaderDate(document.getElementById('entry-date').value);
   document.getElementById('daily-body').innerHTML =
     '<div style="padding:40px;text-align:center;color:var(--muted)">Loading…</div>';
-  loadCatalogAndDaily();
+  await loadCatalogAndDaily();
 }
 
 async function loadCatalogAndDaily() {
@@ -522,7 +522,7 @@ function renderDailyForm(priorDate) {
   let enteredCount = 0;
   for (const cat of groupOrder) {
     desktopHtml += `<tr class="cat-row"><td colspan="10">${cat}</td></tr>`;
-    mobileHtml  += `<div class="cat-group-hdr"><span>${cat}</span></div>`;
+    // no mobile category dividers — filter dropdown handles this
     for (const item of groups[cat]) {
       const {d,prior,amtRec,open,samp,thrw,closing,used,autoOrd,orderVal,isOv,closeLow,hasEntry} = getItemValues(item);
       if (hasEntry) enteredCount++;
