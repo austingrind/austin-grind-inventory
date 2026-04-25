@@ -814,6 +814,7 @@ function showTab(tab) {
   if (tab === 'po')      renderPO();
   if (tab === 'summary') renderSummary();
   if (tab === 'catalog' && !catalogData.length) loadCatalog();
+  if (tab === 'count')   loadCatalogForCount();
 }
 
 // ── Week / header ──────────────────────────────────────────────────────────
