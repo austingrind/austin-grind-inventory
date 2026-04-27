@@ -265,12 +265,12 @@ header{background:var(--navy);color:#fff;padding:12px 16px;position:sticky;top:0
 </header>
 
 <div class="tabs" id="tab-bar">
-  <button class="active" onclick="showTab('daily')">📋 Daily Entry</button>
-  <button onclick="showTab('order')">📦 Order</button>
-  <button onclick="showTab('history')" class="mgr-tab">📅 History</button>
-  <button onclick="showTab('catalog')" class="mgr-tab">⚙️ Catalog</button>
-  <button onclick="showTab('settings')" class="mgr-tab">📧 Settings</button>
-  <button onclick="showTab('square')" class="mgr-tab">🟦 Square Inv</button>
+  <button class="active" data-tab="daily" onclick="showTab('daily')">📋 Daily Entry</button>
+  <button data-tab="order" onclick="showTab('order')">📦 Order</button>
+  <button data-tab="history" class="mgr-tab" onclick="showTab('history')">📅 History</button>
+  <button data-tab="catalog" class="mgr-tab" onclick="showTab('catalog')">⚙️ Catalog</button>
+  <button data-tab="settings" class="mgr-tab" onclick="showTab('settings')">📧 Settings</button>
+  <button data-tab="square" class="mgr-tab" onclick="showTab('square')">🟦 Square Inv</button>
 </div>
 
 <div class="panel active" id="panel-daily">
@@ -299,7 +299,152 @@ header{background:var(--navy);color:#fff;padding:12px 16px;position:sticky;top:0
     <button class="btn btn-warning" onclick="pdfAllOrders()">📄 PDF All</button>
     <span id="order-date-label" style="font-size:.8rem;color:var(--muted);align-self:center"></span>
   </div>
-  <div id="order-body"><div class="no-order">Save today's counts first, then view the order.</div></div>\n</div>\n\n<div class="panel" id="panel-history">\n  <div class="filter-bar">\n    <label>From:</label><input type="date" id="hist-from">\n    <label>To:</label><input type="date" id="hist-to">\n  </div>\n  <div class="filter-bar">\n    <label>Item:</label>\n    <input type="text" id="hist-item" placeholder="All items">\n    <button class="btn btn-primary btn-sm" onclick="loadHistory()">Load</button>\n    <button class="btn btn-sm" style="background:#555;color:#fff" onclick="downloadHistoryCSV()">⬇ CSV</button>\n  </div>\n  <div id="history-body"><div style="padding:32px;text-align:center;color:var(--muted)">Set a date range and click Load.</div></div>\n</div>\n\n<div class="panel" id="panel-catalog">\n  <div class="btn-row">\n    <button class="btn btn-success btn-sm" onclick="openAddModal()">+ Add Item</button>\n    <input type="text" id="cat-search" placeholder="Search…"\n      style="flex:1;min-width:120px;border:1.5px solid var(--border);border-radius:var(--radius);\n             padding:8px 12px;font-size:.9rem;background:var(--card);box-shadow:var(--shadow)"\n      oninput="renderCatalog()">\n    <select id="cat-cat-filter"\n      style="border:1.5px solid var(--border);border-radius:var(--radius);\n             padding:8px 10px;font-size:.85rem;background:var(--card)"\n      onchange="renderCatalog()">\n      <option value="">All categories</option>\n    </select>\n    <label style="display:flex;align-items:center;gap:5px;font-size:.82rem;\n      font-weight:600;color:var(--navy);white-space:nowrap;cursor:pointer">\n      <input type="checkbox" id="cat-show-inactive" onchange="renderCatalog()"> Inactive\n    </label>\n  </div>\n  <div id="catalog-body"><div style="padding:32px;text-align:center;color:var(--muted)">Loading catalog…</div></div>\n</div>\n\n<div id="modal-overlay">\n  <div class="modal-card">\n    <div class="modal-hdr">\n      <span id="modal-title">Add Item</span>\n      <button onclick="closeModal()">×</button>\n    </div>\n    <div class="modal-body">\n      <div class="modal-grid">\n        <div class="full-col">\n          <label class="modal-lbl">Item Name *</label>\n          <input id="m-name" class="modal-inp" type="text">\n        </div>\n        <div class="full-col">\n          <label class="modal-lbl">Category *</label>\n          <select id="m-cat" class="modal-inp">\n            <option value="">— select —</option>\n            <option>Pastries</option><option>Bagels</option><option>Dairy</option>\n            <option>Cookies</option><option>Brownies</option>\n            <option>Cheese</option><option>Meats</option>\n          </select>\n        </div>\n        <div>\n          <label class="modal-lbl">Vendor</label>\n          <input id="m-vendor" class="modal-inp" type="text">\n        </div>\n        <div>\n          <label class="modal-lbl">SKU</label>\n          <input id="m-sku" class="modal-inp" type="text" style="font-family:monospace">\n        </div>\n        <div>\n          <label class="modal-lbl">PAR</label>\n          <input id="m-par" class="modal-inp" type="number" min="0" step="1" placeholder="0">\n        </div>\n        <div>\n          <label class="modal-lbl">Price ($)</label>\n          <input id="m-price" class="modal-inp" type="number" min="0" step="0.01" placeholder="0.00">\n        </div>\n        <div class="full-col">\n          <label class="modal-lbl">Packaging</label>\n          <input id="m-packaging" class="modal-inp" type="text" placeholder="e.g. Each, Box">\n        </div>\n        <div class="full-col" style="display:flex;align-items:center;gap:8px">\n          <input id="m-active" type="checkbox" checked style="width:18px;height:18px;cursor:pointer">\n          <label for="m-active" style="font-size:.88rem;font-weight:600;cursor:pointer">Active — appears in daily entry</label>\n        </div>\n      </div>\n      <div id="modal-err" class="modal-err"></div>\n      <div class="modal-footer">\n        <button onclick="closeModal()" class="btn btn-sm" style="background:#eee;color:#333">Cancel</button>\n        <button onclick="saveItem()" class="btn btn-primary btn-sm" id="modal-save-btn">Save Item</button>\n      </div>\n    </div>\n  </div>\n</div>\n\n<!-- SETTINGS -->\n<div class="panel" id="panel-settings">\n  <div class="card" style="padding:18px;margin-bottom:12px">\n    <div class="card-hdr" style="margin:-18px -18px 16px;border-radius:var(--radius) var(--radius) 0 0">\n      Email Settings\n    </div>\n    <div style="display:grid;gap:12px">\n      <div>\n        <label class="modal-lbl">Test Mode</label>\n        <div style="display:flex;align-items:center;gap:10px;margin-top:4px">\n          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9rem;font-weight:600">\n            <input type="checkbox" id="test-mode" style="width:18px;height:18px"\n              onchange="saveSettings()">\n            Send to test email instead of vendor\n          </label>\n        </div>\n        <div style="font-size:.75rem;color:var(--muted);margin-top:4px">\n          When enabled, all orders go to the test email address below regardless of vendor\n        </div>\n      </div>\n      <div>\n        <label class="modal-lbl">Test Email Address</label>\n        <input id="test-email" class="modal-inp" type="email"\n          placeholder="e.g. manager@austingrind.com"\n          oninput="saveSettings()">\n      </div>\n    </div>\n  </div>\n\n  <div class="card" style="padding:18px;margin-bottom:12px">\n    <div class="card-hdr" style="margin:-18px -18px 16px;border-radius:var(--radius) var(--radius) 0 0">\n      Vendor Email Addresses\n    </div>\n    <div id="vendor-email-list" style="display:grid;gap:10px">\n      Loading…\n    </div>\n    <button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="saveSettings()">\n      💾 Save Settings\n    </button>\n  </div>\n\n  <div class="card" style="padding:18px">\n    <div class="card-hdr" style="margin:-18px -18px 16px;border-radius:var(--radius) var(--radius) 0 0">\n      CC Address\n    </div>\n    <div style="display:grid;gap:12px">\n      <div>\n        <label class="modal-lbl">Always CC</label>\n        <input id="settings-cc" class="modal-inp" type="email"\n          placeholder="e.g. lara@austingrind.com"\n          oninput="saveSettings()">\n        <div style="font-size:.75rem;color:var(--muted);margin-top:4px">\n          This address is CC'd on every order email
+  <div id="order-body"><div class="no-order">Save today's counts first, then view the order.</div></div>
+</div>
+
+<div class="panel" id="panel-history">
+  <div class="filter-bar">
+    <label>From:</label><input type="date" id="hist-from">
+    <label>To:</label><input type="date" id="hist-to">
+  </div>
+  <div class="filter-bar">
+    <label>Item:</label>
+    <input type="text" id="hist-item" placeholder="All items">
+    <button class="btn btn-primary btn-sm" onclick="loadHistory()">Load</button>
+    <button class="btn btn-sm" style="background:#555;color:#fff" onclick="downloadHistoryCSV()">⬇ CSV</button>
+  </div>
+  <div id="history-body"><div style="padding:32px;text-align:center;color:var(--muted)">Set a date range and click Load.</div></div>
+</div>
+
+<div class="panel" id="panel-catalog">
+  <div class="btn-row">
+    <button class="btn btn-success btn-sm" onclick="openAddModal()">+ Add Item</button>
+    <input type="text" id="cat-search" placeholder="Search…"
+      style="flex:1;min-width:120px;border:1.5px solid var(--border);border-radius:var(--radius);
+             padding:8px 12px;font-size:.9rem;background:var(--card);box-shadow:var(--shadow)"
+      oninput="renderCatalog()">
+    <select id="cat-cat-filter"
+      style="border:1.5px solid var(--border);border-radius:var(--radius);
+             padding:8px 10px;font-size:.85rem;background:var(--card)"
+      onchange="renderCatalog()">
+      <option value="">All categories</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:5px;font-size:.82rem;
+      font-weight:600;color:var(--navy);white-space:nowrap;cursor:pointer">
+      <input type="checkbox" id="cat-show-inactive" onchange="renderCatalog()"> Inactive
+    </label>
+  </div>
+  <div id="catalog-body"><div style="padding:32px;text-align:center;color:var(--muted)">Loading catalog…</div></div>
+</div>
+
+<div id="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-hdr">
+      <span id="modal-title">Add Item</span>
+      <button onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-grid">
+        <div class="full-col">
+          <label class="modal-lbl">Item Name *</label>
+          <input id="m-name" class="modal-inp" type="text">
+        </div>
+        <div class="full-col">
+          <label class="modal-lbl">Category *</label>
+          <select id="m-cat" class="modal-inp">
+            <option value="">— select —</option>
+            <option>Pastries</option><option>Bagels</option><option>Dairy</option>
+            <option>Cookies</option><option>Brownies</option>
+            <option>Cheese</option><option>Meats</option>
+          </select>
+        </div>
+        <div>
+          <label class="modal-lbl">Vendor</label>
+          <input id="m-vendor" class="modal-inp" type="text">
+        </div>
+        <div>
+          <label class="modal-lbl">SKU</label>
+          <input id="m-sku" class="modal-inp" type="text" style="font-family:monospace">
+        </div>
+        <div>
+          <label class="modal-lbl">PAR</label>
+          <input id="m-par" class="modal-inp" type="number" min="0" step="1" placeholder="0">
+        </div>
+        <div>
+          <label class="modal-lbl">Price ($)</label>
+          <input id="m-price" class="modal-inp" type="number" min="0" step="0.01" placeholder="0.00">
+        </div>
+        <div class="full-col">
+          <label class="modal-lbl">Packaging</label>
+          <input id="m-packaging" class="modal-inp" type="text" placeholder="e.g. Each, Box">
+        </div>
+        <div class="full-col" style="display:flex;align-items:center;gap:8px">
+          <input id="m-active" type="checkbox" checked style="width:18px;height:18px;cursor:pointer">
+          <label for="m-active" style="font-size:.88rem;font-weight:600;cursor:pointer">Active — appears in daily entry</label>
+        </div>
+      </div>
+      <div id="modal-err" class="modal-err"></div>
+      <div class="modal-footer">
+        <button onclick="closeModal()" class="btn btn-sm" style="background:#eee;color:#333">Cancel</button>
+        <button onclick="saveItem()" class="btn btn-primary btn-sm" id="modal-save-btn">Save Item</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div class="panel" id="panel-settings">
+  <div class="card" style="padding:18px;margin-bottom:12px">
+    <div class="card-hdr" style="margin:-18px -18px 16px;border-radius:var(--radius) var(--radius) 0 0">
+      Email Settings
+    </div>
+    <div style="display:grid;gap:12px">
+      <div>
+        <label class="modal-lbl">Test Mode</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9rem;font-weight:600">
+            <input type="checkbox" id="test-mode" style="width:18px;height:18px"
+              onchange="saveSettings()">
+            Send to test email instead of vendor
+          </label>
+        </div>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:4px">
+          When enabled, all orders go to the test email address below regardless of vendor
+        </div>
+      </div>
+      <div>
+        <label class="modal-lbl">Test Email Address</label>
+        <input id="test-email" class="modal-inp" type="email"
+          placeholder="e.g. manager@austingrind.com"
+          oninput="saveSettings()">
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="padding:18px;margin-bottom:12px">
+    <div class="card-hdr" style="margin:-18px -18px 16px;border-radius:var(--radius) var(--radius) 0 0">
+      Vendor Email Addresses
+    </div>
+    <div id="vendor-email-list" style="display:grid;gap:10px">
+      Loading…
+    </div>
+    <button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="saveSettings()">
+      💾 Save Settings
+    </button>
+  </div>
+
+  <div class="card" style="padding:18px">
+    <div class="card-hdr" style="margin:-18px -18px 16px;border-radius:var(--radius) var(--radius) 0 0">
+      CC Address
+    </div>
+    <div style="display:grid;gap:12px">
+      <div>
+        <label class="modal-lbl">Always CC</label>
+        <input id="settings-cc" class="modal-inp" type="email"
+          placeholder="e.g. lara@austingrind.com"
+          oninput="saveSettings()">
+        <div style="font-size:.75rem;color:var(--muted);margin-top:4px">
+          This address is CC'd on every order email
         </div>
       </div>
     </div>
@@ -320,7 +465,7 @@ header{background:var(--navy);color:#fff;padding:12px 16px;position:sticky;top:0
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" id="sq-sync-btn" onclick="squareSyncInventory()">↻ Sync from Square</button>
-      <button class="btn btn-sm" style="background:var(--green);color:#fff" id="sq-save-map-btn" onclick="saveSquareMappings()" style="display:none">💾 Save Mappings</button>
+      <button class="btn btn-sm" id="sq-save-map-btn" onclick="saveSquareMappings()" style="background:var(--green);color:#fff;display:none">💾 Save Mappings</button>
     </div>
   </div>
 
@@ -421,9 +566,9 @@ function checkSession() {
   return false;
 }
 function applyRoleUI() {
-  const tabs = ['daily','order','history','catalog','settings','square'];
-  document.querySelectorAll('#tab-bar button').forEach((btn,i) => {
-    btn.style.display = (MANAGER_TABS.has(tabs[i]) && userRole!=='manager') ? 'none' : '';
+  document.querySelectorAll('#tab-bar button').forEach(btn => {
+    const t = btn.getAttribute('data-tab');
+    btn.style.display = (t && MANAGER_TABS.has(t) && userRole!=='manager') ? 'none' : '';
   });
   document.getElementById('signout-btn').style.display = '';
 }
@@ -433,7 +578,13 @@ function signOut() {
   ['bk_role','bk_pin_hash'].forEach(k => localStorage.removeItem(k));
   document.getElementById('signout-btn').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
+  document.querySelectorAll('#tab-bar button').forEach(btn => {
+    const t = btn.getAttribute('data-tab');
+    if (t && MANAGER_TABS.has(t)) btn.style.display = 'none';
+  });
   showTab('daily');
+  const pin = document.getElementById('pin-input');
+  if (pin) { pin.value = ''; pin.focus(); }
 }
 function supaHeaders() {
   return {'Content-Type':'application/json',
@@ -476,11 +627,12 @@ function showTab(tab) {
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('#tab-bar button').forEach(b=>b.classList.remove('active'));
   document.getElementById('panel-'+tab).classList.add('active');
-  const idx = ['daily','order','history','catalog','settings','square'].indexOf(tab);
-  document.querySelectorAll('#tab-bar button')[idx].classList.add('active');
-  if (tab==='order')   renderOrder();
-  if (tab==='catalog') loadCatalog();
-  if (tab==='square')  initSquareTab();
+  const tabBtn = document.querySelector('#tab-bar button[data-tab="'+tab+'"]');
+  if (tabBtn) tabBtn.classList.add('active');
+  if (tab==='order')    renderOrder();
+  if (tab==='catalog')  loadCatalog();
+  if (tab==='settings') loadSettings();
+  if (tab==='square')   initSquareTab();
 }
 function updateHeaderDate(d) {
   const lbl = d ? new Date(d+'T12:00:00').toLocaleDateString('en-US',
@@ -830,12 +982,15 @@ async function saveDaily() {
       submitted_by:staff,
     });
   }
+  // Upsert by (record_date,item_id) so a partial failure can't wipe data.
+  // Requires a UNIQUE constraint in bakery_daily on (record_date,item_id).
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/bakery_daily?record_date=eq.${date}`,
-      {method:'DELETE',headers:supaHeaders()});
     for (let i=0;i<rows.length;i+=50) {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/bakery_daily`,
-        {method:'POST',headers:{...supaHeaders(),'Prefer':'return=minimal'},
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/bakery_daily?on_conflict=record_date,item_id`,
+        {method:'POST',
+         headers:{...supaHeaders(),
+                  'Prefer':'return=minimal,resolution=merge-duplicates'},
          body:JSON.stringify(rows.slice(i,i+50))});
       if (!res.ok) throw new Error(await res.text());
     }
@@ -865,17 +1020,27 @@ function renderOrder() {
     return;
   }
   const byVendor = {};
+  const vendorSlug = v => String(v||'misc').toLowerCase().replace(/[^a-z0-9]+/g,'_');
   for (const item of orderItems) {
     const {closing,orderVal,isOv,autoOrd} = getItemValues(item);
-    if (!byVendor[item.vendor]) byVendor[item.vendor]=[];
-    byVendor[item.vendor].push({...item,closing,qty:orderVal,autoOrd,isOv});
+    const v = item.vendor && item.vendor.trim() ? item.vendor : 'Misc';
+    if (!byVendor[v]) byVendor[v]=[];
+    byVendor[v].push({...item,vendor:v,closing,qty:orderVal,autoOrd,isOv});
   }
   window._orderItems = orderItems;
   let html='';
   for (const [v,items] of Object.entries(byVendor).sort()) {
     const total = items.reduce((s,i)=>s+(i.price>0?i.qty*i.price:0),0);
-    html += `<div class="order-card"><div class="order-hdr">
+    const slug = vendorSlug(v);
+    const vEsc = v.replace(/'/g, "\\'");
+    html += `<div class="order-card" id="vendor-card-${slug}"><div class="order-hdr">
       <span>📦 ${v}</span><span>${items.length} item${items.length>1?'s':''}</span></div>
+      <div style="padding:8px 12px;display:flex;gap:6px;flex-wrap:wrap;background:#f7fafc;border-bottom:1px solid var(--border)">
+        <button class="btn btn-primary btn-sm" onclick="emailVendor('${vEsc}')">✉ Email</button>
+        <button class="btn btn-success btn-sm" onclick="copyVendorOrder('${vEsc}')">📋 Copy</button>
+        <button class="btn btn-warning btn-sm" onclick="pdfVendor('${vEsc}','${slug}')">📄 PDF</button>
+        <button class="btn btn-sm" style="background:#555;color:#fff" onclick="printVendor('${slug}')">🖨 Print</button>
+      </div>
       <div class="table-wrap"><table class="order-table"><thead><tr>
         <th>Item</th><th style="text-align:center">Closing</th>
         <th style="text-align:center">PAR</th>
@@ -1199,13 +1364,21 @@ function loadSettings() {
   document.getElementById('vendor-email-list').innerHTML = vhtml;
 }
 
-function saveSettings() {
+let _settingsSaveTimer = null;
+function saveSettings(opts) {
+  // Merge with existing vendorEmails so an early keystroke (before the
+  // vendor list has rendered) can't wipe saved emails.
+  const existing = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+  const vendorEmails = Object.assign({}, existing.vendorEmails || {});
   const vendors = [...new Set(catalogData.map(i => i.vendor).filter(Boolean))].sort();
-  const vendorEmails = {};
   vendors.forEach(v => {
     const slug = v.replace(/[^a-z0-9]/gi,'_');
     const el   = document.getElementById('vendor-email-'+slug);
-    if (el && el.value.trim()) vendorEmails[v] = el.value.trim();
+    if (el) {
+      const val = el.value.trim();
+      if (val) vendorEmails[v] = val;
+      else delete vendorEmails[v];
+    }
   });
   const settings = {
     testMode:    document.getElementById('test-mode').checked,
@@ -1214,7 +1387,10 @@ function saveSettings() {
     vendorEmails,
   };
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  toast('Settings saved ✓');
+  if (opts && opts.silent) return;
+  // Debounce so per-keystroke saves don't spam the toast.
+  clearTimeout(_settingsSaveTimer);
+  _settingsSaveTimer = setTimeout(() => toast('Settings saved ✓'), 600);
 }
 
 function getSettings() {
@@ -1244,7 +1420,8 @@ function emailVendor(vendor) {
   const dateFmt = date ? new Date(date+'T12:00:00').toLocaleDateString('en-US',
     {month:'numeric',day:'numeric',year:'numeric'}) : date;
   const vendorItems = catalogData.filter(item => {
-    if (item.vendor !== vendor) return false;
+    const v = (item.vendor && item.vendor.trim()) ? item.vendor : 'Misc';
+    if (v !== vendor) return false;
     const {orderVal} = getItemValues(item);
     return orderVal > 0;
   });
@@ -1261,7 +1438,10 @@ function emailVendor(vendor) {
   const toEmail = getVendorEmail(vendor);
   const cc      = getCC();
   const subject = encodeURIComponent("It's A Grind Coffee House - Bakery Order "+dateFmt);
-  if (!toEmail) toast('No email set for '+vendor+' — add it in Settings tab');
+  if (!toEmail) {
+    toast('No email set for '+vendor+' — add it in Settings tab');
+    return;
+  }
   window.location.href = 'mailto:'+toEmail+'?cc='+encodeURIComponent(cc)
     +'&subject='+subject+'&body='+encodeURIComponent(body);
 }
@@ -1273,7 +1453,8 @@ function buildVendorOrderText(vendor) {
   const dateFmt = date ? new Date(date+'T12:00:00').toLocaleDateString('en-US',
     {month:'numeric',day:'numeric',year:'numeric'}) : date;
   const items = catalogData.filter(item => {
-    if (item.vendor !== vendor) return false;
+    const v = (item.vendor && item.vendor.trim()) ? item.vendor : 'Misc';
+    if (v !== vendor) return false;
     const {orderVal} = getItemValues(item);
     return orderVal > 0;
   });
@@ -1295,11 +1476,11 @@ function buildVendorOrderText(vendor) {
 }
 
 function buildAllOrdersText() {
-  const vendors = [...new Set(catalogData.map(i=>i.vendor).filter(Boolean))].sort();
+  const vendors = [...new Set(catalogData.map(i => (i.vendor && i.vendor.trim()) ? i.vendor : 'Misc'))].sort();
   const date = document.getElementById('entry-date').value;
   const dateFmt = date ? new Date(date+'T12:00:00').toLocaleDateString('en-US',
     {month:'numeric',day:'numeric',year:'numeric'}) : date;
-  let full = "Austin Grind - Bakery Orders for " + dateFmt + "\n\n";
+  let full = '';
   let hasAny = false;
   for (const vendor of vendors) {
     const result = buildVendorOrderText(vendor);
@@ -1351,19 +1532,19 @@ function suggestBakeryName(squareName) {
     const score = overlap + sub;
     if (score > bestScore) { bestScore = score; best = item.name; }
   }
-  return bestScore >= 1 ? best : '';
+  // Threshold of 2 prevents single-common-word false matches like everything-with-'muffin'.
+  return bestScore >= 2 ? best : '';
 }
 
 function updateSquareStats() {
   const total    = squareItems.length;
   const mapped   = squareItems.filter(i => squareMappings[i.id] && squareMappings[i.id].trim()).length;
   const unmapped = total - mapped;
-  const low      = squareItems.filter(i => i.quantity > 0 && i.quantity <= 5).length
-                 + squareItems.filter(i => i.quantity <= 0).length;
+  const lowOrOut = squareItems.filter(i => i.quantity <= 5).length;
   document.getElementById('sq-stat-total').textContent    = total || '—';
   document.getElementById('sq-stat-mapped').textContent   = total ? mapped : '—';
   document.getElementById('sq-stat-unmapped').textContent = total ? unmapped : '—';
-  document.getElementById('sq-stat-low').textContent      = total ? squareItems.filter(i=>i.quantity<=5).length : '—';
+  document.getElementById('sq-stat-low').textContent      = total ? lowOrOut : '—';
 }
 
 function renderSquareTable() {
@@ -1456,6 +1637,29 @@ function saveSquareMappings() {
   }
 }
 
+// Model used for Square sync. Override via window.SQUARE_MODEL in config.js.
+// Recommended: 'claude-haiku-4-5-20251001' (fast/cheap, fine for JSON+MCP).
+// Fallback if you see flaky output: 'claude-sonnet-4-6'.
+const SQUARE_MODEL = window.SQUARE_MODEL || 'claude-haiku-4-5-20251001';
+
+// Proxy URL — Supabase Edge Function that holds the Anthropic API key
+// server-side and forwards to api.anthropic.com. The URL itself isn't
+// secret (anyone can discover it via View Source); the secret is the
+// Anthropic key, which lives in Supabase secrets, never in this file.
+// Override via window.SQUARE_PROXY_URL in config.js if you ever change it.
+const SQUARE_PROXY_URL = window.SQUARE_PROXY_URL ||
+  'https://zkonxyozzgpbhhnjnmdd.supabase.co/functions/v1/square-proxy';
+
+// Dev fallback only: window.ANTHROPIC_API_KEY enables direct browser calls
+// with anthropic-dangerous-direct-browser-access. Do NOT use this in
+// production / on a public URL.
+
+function showSquareError(msg) {
+  const errEl = document.getElementById('sq-error');
+  errEl.textContent = msg;
+  errEl.style.display = '';
+}
+
 async function squareSyncInventory() {
   const btn = document.getElementById('sq-sync-btn');
   btn.disabled = true;
@@ -1463,43 +1667,87 @@ async function squareSyncInventory() {
   document.getElementById('sq-error').style.display = 'none';
 
   // Loading skeleton
-  document.getElementById('sq-table-wrap').innerHTML = `
-    <div style="padding:24px;text-align:center;color:var(--muted)">
-      <div style="font-size:1.4rem;margin-bottom:8px">🟦</div>
-      Connecting to Square…
-    </div>`;
+  document.getElementById('sq-table-wrap').innerHTML =
+    '<div style="padding:24px;text-align:center;color:var(--muted)">' +
+    '<div style="font-size:1.4rem;margin-bottom:8px">🟦</div>' +
+    'Connecting to Square…</div>';
+
+  const requestBody = {
+    model: SQUARE_MODEL,
+    max_tokens: 2000,
+    system: 'You are a Square POS data connector for Austin Grind bakery. ' +
+      'Use the Square MCP to fetch catalog items and their current inventory counts. ' +
+      'Return ONLY a valid JSON array — no markdown, no explanation, no extra text. ' +
+      'Each element must have exactly: {"id": string, "name": string, "description": string, "quantity": number}. ' +
+      'The id MUST be the stable Square catalog object id; never invent one. ' +
+      'Focus on bakery/food items only. ' +
+      'If you cannot connect to Square or the MCP returns no items, return an empty array []. Do NOT fabricate sample data.',
+    messages: [{role:'user', content:'Fetch all catalog items and current inventory quantities from Square POS. Return only the JSON array.'}],
+    mcp_servers: [{type:'url', url:'https://mcp.squareup.com/sse', name:'square-mcp'}]
+  };
+
+  let endpoint, headers;
+  if (SQUARE_PROXY_URL) {
+    endpoint = SQUARE_PROXY_URL;
+    headers = {'Content-Type':'application/json'};
+  } else if (window.ANTHROPIC_API_KEY) {
+    endpoint = 'https://api.anthropic.com/v1/messages';
+    headers = {
+      'Content-Type': 'application/json',
+      'x-api-key': window.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'mcp-client-2025-04-04',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    };
+  } else {
+    showSquareError('Square sync is not configured. Set SQUARE_PROXY_URL near the top of the Square section in bakery.html, or set window.ANTHROPIC_API_KEY in config.js (dev only).');
+    document.getElementById('sq-table-wrap').innerHTML =
+      '<div style="padding:32px;text-align:center;color:var(--muted)">Not configured — see error above.</div>';
+    btn.disabled = false;
+    btn.textContent = '↻ Sync from Square';
+    return;
+  }
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(endpoint, {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        system: `You are a Square POS data connector for Austin Grind bakery. 
-Use the Square MCP to fetch catalog items and their current inventory counts.
-Return ONLY a valid JSON array — no markdown, no explanation, no extra text.
-Each element must have exactly: {"id": string, "name": string, "description": string, "quantity": number}
-Focus on bakery/food items only. If you cannot connect to Square or get no real data, return realistic sample bakery inventory for a coffee shop bakery (croissants, muffins, bagels, cookies, pastries etc.) with varied quantities including some low and out-of-stock items. Always return the JSON array.`,
-        messages: [{role:'user', content:'Fetch all catalog items and current inventory quantities from Square POS. Return only the JSON array.'}],
-        mcp_servers: [{type:'url', url:'https://mcp.squareup.com/sse', name:'square-mcp'}]
-      })
+      headers,
+      body: JSON.stringify(requestBody)
     });
 
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error('API ' + res.status + ': ' + errText.substring(0,200));
+    }
+
     const data = await res.json();
+    if (data.type === 'error') throw new Error(data.error?.message || 'API returned error');
+
     const textBlock = (data.content||[]).find(b => b.type==='text');
     if (!textBlock) throw new Error('No text response from API');
 
     const raw = textBlock.text.replace(/```json|```/g,'').trim();
-    let parsed = JSON.parse(raw);
+    let parsed;
+    try { parsed = JSON.parse(raw); }
+    catch(e) { throw new Error('Square returned non-JSON: ' + raw.substring(0,120)); }
     if (!Array.isArray(parsed)) throw new Error('Response was not an array');
 
+    // Stable ID fallback: slugify the name instead of Math.random() so saved
+    // mappings persist across syncs even if Square omits an id.
+    const slugify = s => String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
     squareItems = parsed.map(i => ({
-      id:          String(i.id || Math.random()),
+      id:          String(i.id || ('name:' + slugify(i.name))),
       name:        i.name || 'Unnamed',
       description: i.description || '',
       quantity:    typeof i.quantity === 'number' ? Math.round(i.quantity) : 0
     }));
+
+    if (!squareItems.length) {
+      showSquareError('Square returned no items. Make sure the Square MCP connector is connected and your catalog is not empty.');
+      document.getElementById('sq-table-wrap').innerHTML =
+        '<div style="padding:32px;text-align:center;color:var(--muted)">No items returned from Square.</div>';
+      return;
+    }
 
     // Auto-suggest mappings for unmapped items
     for (const item of squareItems) {
@@ -1509,8 +1757,14 @@ Focus on bakery/food items only. If you cannot connect to Square or get no real 
       }
     }
 
+    // Prune stale mappings — keep only ids currently present in Square
+    const presentIds = new Set(squareItems.map(i => i.id));
+    for (const id of Object.keys(squareMappings)) {
+      if (!presentIds.has(id)) delete squareMappings[id];
+    }
+
     const now = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-    document.getElementById('sq-last-sync').textContent = `Last synced: ${now}`;
+    document.getElementById('sq-last-sync').textContent = 'Last synced: ' + now;
     document.getElementById('sq-filter-bar').style.display = '';
     document.getElementById('sq-legend').style.display = '';
     document.getElementById('sq-save-map-btn').style.display = squareItems.length ? '' : 'none';
@@ -1520,16 +1774,15 @@ Focus on bakery/food items only. If you cannot connect to Square or get no real 
 
   } catch(e) {
     console.error('Square sync error:', e);
-    const errEl = document.getElementById('sq-error');
-    errEl.textContent = 'Could not load inventory from Square. Check your connection and try again.';
-    errEl.style.display = '';
+    showSquareError('Could not load inventory from Square. ' + (e.message || ''));
     document.getElementById('sq-table-wrap').innerHTML =
-      '<div style="padding:32px;text-align:center;color:var(--muted)">Sync failed — try again.</div>';
+      '<div style="padding:32px;text-align:center;color:var(--muted)">Sync failed — see error above.</div>';
   } finally {
     btn.disabled = false;
     btn.textContent = '↻ Sync from Square';
   }
 }
+
 
 
 function copyVendorOrder(vendor) {
@@ -1638,38 +1891,41 @@ function openPdfWindow(htmlContent, filename) {
     ${htmlContent}
   </body></html>`);
   win.document.close();
-  win.onload = () => { setTimeout(() => win.print(), 300); };
+  // Don't auto-print — the visible button already triggers print, and
+  // auto-print can fire before layout, producing blank pages.
 }
 
 function pdfVendor(vendor, vendorSlug) {
   const result = buildVendorOrderText(vendor);
   if (!result) { toast("No items to order from " + vendor); return; }
   const items = catalogData.filter(item => {
-    if (item.vendor !== vendor) return false;
+    const v = (item.vendor && item.vendor.trim()) ? item.vendor : 'Misc';
+    if (v !== vendor) return false;
     const {orderVal} = getItemValues(item);
     return orderVal > 0;
   });
+  const date = document.getElementById('entry-date').value;
+  const safeName = vendor.replace(/[^A-Za-z0-9]+/g,'_');
   const htmlContent = buildOrderHtml(vendor, items, result.dateFmt);
-  openPdfWindow(htmlContent, 'AG-Order-'+vendor+'-'+result.dateFmt);
+  openPdfWindow(htmlContent, 'AG-Order-'+safeName+'-'+date+'.pdf');
 }
 
 function pdfAllOrders() {
-  renderOrder(); // ensure order is current
-  const vendors = [...new Set(catalogData.map(i=>i.vendor).filter(Boolean))].sort();
+  renderOrder();
+  const vendors = [...new Set(catalogData.map(i => (i.vendor && i.vendor.trim()) ? i.vendor : 'Misc'))].sort();
   const date = document.getElementById('entry-date').value;
-  const dateFmt = date ? new Date(date+'T12:00:00').toLocaleDateString('en-US',
-    {month:'numeric',day:'numeric',year:'numeric'}) : '';
   let allHtml = '';
   for (const vendor of vendors) {
     const items = catalogData.filter(item => {
-      if (item.vendor !== vendor) return false;
+      const v = (item.vendor && item.vendor.trim()) ? item.vendor : 'Misc';
+      if (v !== vendor) return false;
       const {orderVal} = getItemValues(item);
       return orderVal > 0;
     });
-    if (items.length) allHtml += buildOrderHtml(vendor, items, dateFmt);
+    if (items.length) allHtml += buildOrderHtml(vendor, items, date);
   }
   if (!allHtml) { toast("No items to order"); return; }
-  openPdfWindow(allHtml, 'AG-Orders-All-'+dateFmt);
+  openPdfWindow(allHtml, 'AG-Orders-All-'+date+'.pdf');
 }
 
 </script>
