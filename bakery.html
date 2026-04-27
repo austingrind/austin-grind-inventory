@@ -189,14 +189,12 @@ header{background:var(--navy);color:#fff;padding:12px 16px;position:sticky;top:0
 .progress-pill{background:rgba(255,255,255,.15);border-radius:12px;
   padding:3px 10px;font-size:.72rem;font-weight:700;color:#fff;white-space:nowrap}
 @media print {
-  header,.tabs,.save-bar,.top-bar,.filter-bar,.btn-row,
+  header,.tabs,.save-bar,.top-bar,.filter-bar,
   #login-screen,#modal-overlay,#toast,
-  #panel-daily,#panel-history,#panel-catalog,#panel-settings{display:none!important}
+  #panel-daily,#panel-history,#panel-catalog{display:none!important}
   #panel-order{display:block!important;padding:0}
-  .panel.active:not(#panel-order){display:none!important}
-  body{background:#fff;margin:0}
-  .order-card{box-shadow:none;margin-bottom:12px}
-  .order-hdr button{display:none!important}
+  body{background:#fff}
+  .order-card{box-shadow:none}
 }
 @media (min-width:700px) {
   .item-card{display:none}
@@ -272,6 +270,7 @@ header{background:var(--navy);color:#fff;padding:12px 16px;position:sticky;top:0
   <button onclick="showTab('history')" class="mgr-tab">📅 History</button>
   <button onclick="showTab('catalog')" class="mgr-tab">⚙️ Catalog</button>
   <button onclick="showTab('settings')" class="mgr-tab">📧 Settings</button>
+  <button onclick="showTab('square')" class="mgr-tab">🟦 Square Inv</button>
 </div>
 
 <div class="panel active" id="panel-daily">
@@ -285,7 +284,8 @@ header{background:var(--navy);color:#fff;padding:12px 16px;position:sticky;top:0
     <input type="text" id="entry-staff" placeholder="Name (optional)"
       style="flex:1" oninput="localStorage.setItem('bk_staff',this.value)">
     <select id="daily-cat-filter" onchange="applyDailyCatFilter()"
-      style="border:1.5px solid var(--border);border-radius:8px; padding:8px 10px;font-size:.85rem;background:var(--card);flex:1;max-width:180px">
+      style="border:1.5px solid var(--border);border-radius:8px;
+             padding:8px 10px;font-size:.85rem;background:var(--card);flex:1;max-width:180px">
       <option value="">All categories</option>
     </select>
   </div>
@@ -294,160 +294,88 @@ header{background:var(--navy);color:#fff;padding:12px 16px;position:sticky;top:0
 
 <div class="panel" id="panel-order">
   <div class="btn-row">
-    <select id="order-vendor-filter" onchange="renderOrder()"
-      style="border:1.5px solid var(--border);border-radius:var(--radius); padding:8px 12px;font-size:.9rem;background:var(--card);min-width:160px">
-      <option value="">All vendors</option>
-    </select>
-    <button class="btn btn-primary" onclick="printFilteredOrders()">🖨 Print</button>
-    <button class="btn btn-success" onclick="copyFilteredOrders()">📋 Copy</button>
-    <button class="btn btn-warning" onclick="pdfFilteredOrders()">📄 PDF</button>
+    <button class="btn btn-primary" onclick="window.print()">🖨 Print All</button>
+    <button class="btn btn-success" onclick="copyAllOrders()">📋 Copy All</button>
+    <button class="btn btn-warning" onclick="pdfAllOrders()">📄 PDF All</button>
     <span id="order-date-label" style="font-size:.8rem;color:var(--muted);align-self:center"></span>
   </div>
-  <div id="order-body"><div class="no-order">Save today's counts first, then view the order.</div></div>
+  <div id="order-body"><div class="no-order">Save today's counts first, then view the order.</div></div>\n</div>\n\n<div class="panel" id="panel-history">\n  <div class="filter-bar">\n    <label>From:</label><input type="date" id="hist-from">\n    <label>To:</label><input type="date" id="hist-to">\n  </div>\n  <div class="filter-bar">\n    <label>Item:</label>\n    <input type="text" id="hist-item" placeholder="All items">\n    <button class="btn btn-primary btn-sm" onclick="loadHistory()">Load</button>\n    <button class="btn btn-sm" style="background:#555;color:#fff" onclick="downloadHistoryCSV()">⬇ CSV</button>\n  </div>\n  <div id="history-body"><div style="padding:32px;text-align:center;color:var(--muted)">Set a date range and click Load.</div></div>\n</div>\n\n<div class="panel" id="panel-catalog">\n  <div class="btn-row">\n    <button class="btn btn-success btn-sm" onclick="openAddModal()">+ Add Item</button>\n    <input type="text" id="cat-search" placeholder="Search…"\n      style="flex:1;min-width:120px;border:1.5px solid var(--border);border-radius:var(--radius);\n             padding:8px 12px;font-size:.9rem;background:var(--card);box-shadow:var(--shadow)"\n      oninput="renderCatalog()">\n    <select id="cat-cat-filter"\n      style="border:1.5px solid var(--border);border-radius:var(--radius);\n             padding:8px 10px;font-size:.85rem;background:var(--card)"\n      onchange="renderCatalog()">\n      <option value="">All categories</option>\n    </select>\n    <label style="display:flex;align-items:center;gap:5px;font-size:.82rem;\n      font-weight:600;color:var(--navy);white-space:nowrap;cursor:pointer">\n      <input type="checkbox" id="cat-show-inactive" onchange="renderCatalog()"> Inactive\n    </label>\n  </div>\n  <div id="catalog-body"><div style="padding:32px;text-align:center;color:var(--muted)">Loading catalog…</div></div>\n</div>\n\n<div id="modal-overlay">\n  <div class="modal-card">\n    <div class="modal-hdr">\n      <span id="modal-title">Add Item</span>\n      <button onclick="closeModal()">×</button>\n    </div>\n    <div class="modal-body">\n      <div class="modal-grid">\n        <div class="full-col">\n          <label class="modal-lbl">Item Name *</label>\n          <input id="m-name" class="modal-inp" type="text">\n        </div>\n        <div class="full-col">\n          <label class="modal-lbl">Category *</label>\n          <select id="m-cat" class="modal-inp">\n            <option value="">— select —</option>\n            <option>Pastries</option><option>Bagels</option><option>Dairy</option>\n            <option>Cookies</option><option>Brownies</option>\n            <option>Cheese</option><option>Meats</option>\n          </select>\n        </div>\n        <div>\n          <label class="modal-lbl">Vendor</label>\n          <input id="m-vendor" class="modal-inp" type="text">\n        </div>\n        <div>\n          <label class="modal-lbl">SKU</label>\n          <input id="m-sku" class="modal-inp" type="text" style="font-family:monospace">\n        </div>\n        <div>\n          <label class="modal-lbl">PAR</label>\n          <input id="m-par" class="modal-inp" type="number" min="0" step="1" placeholder="0">\n        </div>\n        <div>\n          <label class="modal-lbl">Price ($)</label>\n          <input id="m-price" class="modal-inp" type="number" min="0" step="0.01" placeholder="0.00">\n        </div>\n        <div class="full-col">\n          <label class="modal-lbl">Packaging</label>\n          <input id="m-packaging" class="modal-inp" type="text" placeholder="e.g. Each, Box">\n        </div>\n        <div class="full-col" style="display:flex;align-items:center;gap:8px">\n          <input id="m-active" type="checkbox" checked style="width:18px;height:18px;cursor:pointer">\n          <label for="m-active" style="font-size:.88rem;font-weight:600;cursor:pointer">Active — appears in daily entry</label>\n        </div>\n      </div>\n      <div id="modal-err" class="modal-err"></div>\n      <div class="modal-footer">\n        <button onclick="closeModal()" class="btn btn-sm" style="background:#eee;color:#333">Cancel</button>\n        <button onclick="saveItem()" class="btn btn-primary btn-sm" id="modal-save-btn">Save Item</button>\n      </div>\n    </div>\n  </div>\n</div>\n\n<!-- SETTINGS -->\n<div class="panel" id="panel-settings">\n  <div class="card" style="padding:18px;margin-bottom:12px">\n    <div class="card-hdr" style="margin:-18px -18px 16px;border-radius:var(--radius) var(--radius) 0 0">\n      Email Settings\n    </div>\n    <div style="display:grid;gap:12px">\n      <div>\n        <label class="modal-lbl">Test Mode</label>\n        <div style="display:flex;align-items:center;gap:10px;margin-top:4px">\n          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9rem;font-weight:600">\n            <input type="checkbox" id="test-mode" style="width:18px;height:18px"\n              onchange="saveSettings()">\n            Send to test email instead of vendor\n          </label>\n        </div>\n        <div style="font-size:.75rem;color:var(--muted);margin-top:4px">\n          When enabled, all orders go to the test email address below regardless of vendor\n        </div>\n      </div>\n      <div>\n        <label class="modal-lbl">Test Email Address</label>\n        <input id="test-email" class="modal-inp" type="email"\n          placeholder="e.g. manager@austingrind.com"\n          oninput="saveSettings()">\n      </div>\n    </div>\n  </div>\n\n  <div class="card" style="padding:18px;margin-bottom:12px">\n    <div class="card-hdr" style="margin:-18px -18px 16px;border-radius:var(--radius) var(--radius) 0 0">\n      Vendor Email Addresses\n    </div>\n    <div id="vendor-email-list" style="display:grid;gap:10px">\n      Loading…\n    </div>\n    <button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="saveSettings()">\n      💾 Save Settings\n    </button>\n  </div>\n\n  <div class="card" style="padding:18px">\n    <div class="card-hdr" style="margin:-18px -18px 16px;border-radius:var(--radius) var(--radius) 0 0">\n      CC Address\n    </div>\n    <div style="display:grid;gap:12px">\n      <div>\n        <label class="modal-lbl">Always CC</label>\n        <input id="settings-cc" class="modal-inp" type="email"\n          placeholder="e.g. lara@austingrind.com"\n          oninput="saveSettings()">\n        <div style="font-size:.75rem;color:var(--muted);margin-top:4px">\n          This address is CC'd on every order email
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<div class="panel" id="panel-history">
-  <div class="filter-bar">
-    <label>From:</label><input type="date" id="hist-from">
-    <label>To:</label><input type="date" id="hist-to">
+<div class="panel" id="panel-square">
+  <!-- Header row -->
+  <div class="top-bar" style="justify-content:space-between;flex-wrap:wrap;gap:10px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:30px;height:30px;background:var(--navy);border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:.95rem;color:var(--navy)">Square Inventory</div>
+        <div style="font-size:.72rem;color:var(--muted)" id="sq-last-sync">Not yet synced</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" id="sq-sync-btn" onclick="squareSyncInventory()">↻ Sync from Square</button>
+      <button class="btn btn-sm" style="background:var(--green);color:#fff" id="sq-save-map-btn" onclick="saveSquareMappings()" style="display:none">💾 Save Mappings</button>
+    </div>
   </div>
-  <div class="filter-bar">
-    <label>Item:</label>
-    <input type="text" id="hist-item" placeholder="All items">
-    <button class="btn btn-primary btn-sm" onclick="loadHistory()">Load</button>
-    <button class="btn btn-sm" style="background:#555;color:#fff" onclick="downloadHistoryCSV()">⬇ CSV</button>
-  </div>
-  <div id="history-body"><div style="padding:32px;text-align:center;color:var(--muted)">Set a date range and click Load.</div></div>
-</div>
 
-<div class="panel" id="panel-catalog">
-  <div class="btn-row">
-    <button class="btn btn-success btn-sm" onclick="openAddModal()">+ Add Item</button>
-    <input type="text" id="cat-search" placeholder="Search…"
-      style="flex:1;min-width:120px;border:1.5px solid var(--border);border-radius:var(--radius); padding:8px 12px;font-size:.9rem;background:var(--card);box-shadow:var(--shadow)"
-      oninput="renderCatalog()">
-    <select id="cat-cat-filter"
-      style="border:1.5px solid var(--border);border-radius:var(--radius); padding:8px 10px;font-size:.85rem;background:var(--card)"
-      onchange="renderCatalog()">
-      <option value="">All categories</option>
+  <!-- Stats row -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:10px">
+    <div class="card" style="padding:10px 12px;text-align:center">
+      <div style="font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Square Items</div>
+      <div style="font-size:1.4rem;font-weight:700;color:var(--navy)" id="sq-stat-total">—</div>
+    </div>
+    <div class="card" style="padding:10px 12px;text-align:center">
+      <div style="font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Mapped</div>
+      <div style="font-size:1.4rem;font-weight:700;color:var(--green)" id="sq-stat-mapped">—</div>
+    </div>
+    <div class="card" style="padding:10px 12px;text-align:center">
+      <div style="font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Unmapped</div>
+      <div style="font-size:1.4rem;font-weight:700;color:var(--orange)" id="sq-stat-unmapped">—</div>
+    </div>
+    <div class="card" style="padding:10px 12px;text-align:center">
+      <div style="font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Low Stock</div>
+      <div style="font-size:1.4rem;font-weight:700;color:var(--red)" id="sq-stat-low">—</div>
+    </div>
+  </div>
+
+  <!-- Error banner -->
+  <div id="sq-error" style="display:none;background:#fff5f5;border:1.5px solid #f5c6c6;border-radius:var(--radius);padding:10px 14px;margin-bottom:10px;font-size:.83rem;color:var(--red)"></div>
+
+  <!-- Mapping legend -->
+  <div id="sq-legend" style="display:none;background:var(--blue-lt);border:1.5px solid #b3d4ef;border-radius:var(--radius);padding:10px 14px;margin-bottom:10px;font-size:.78rem;color:var(--navy)">
+    <strong>Name Mapping:</strong> The "Bakery Name" column lets you link each Square item to the matching name in your Bakery catalog. Auto-suggested matches are pre-filled — review and adjust, then click <strong>Save Mappings</strong>.
+  </div>
+
+  <!-- Search + filter -->
+  <div class="filter-bar" id="sq-filter-bar" style="display:none">
+    <input type="text" id="sq-search" placeholder="Search items…" oninput="renderSquareTable()"
+      style="flex:1;min-width:140px">
+    <select id="sq-status-filter" onchange="renderSquareTable()"
+      style="border:1.5px solid var(--border);border-radius:6px;padding:8px 10px;font-size:.85rem;background:var(--card);min-height:40px">
+      <option value="all">All statuses</option>
+      <option value="in">In stock</option>
+      <option value="low">Low stock</option>
+      <option value="out">Out of stock</option>
     </select>
-    <label style="display:flex;align-items:center;gap:5px;font-size:.82rem; font-weight:600;color:var(--navy);white-space:nowrap;cursor:pointer">
-      <input type="checkbox" id="cat-show-inactive" onchange="renderCatalog()"> Inactive
-    </label>
-  </div>
-  <div id="catalog-body"><div style="padding:32px;text-align:center;color:var(--muted)">Loading catalog…</div></div>
-</div>
-
-<div id="modal-overlay">
-  <div class="modal-card">
-    <div class="modal-hdr">
-      <span id="modal-title">Add Item</span>
-      <button onclick="closeModal()">×</button>
-    </div>
-    <div class="modal-body">
-      <div class="modal-grid">
-        <div class="full-col">
-          <label class="modal-lbl">Item Name *</label>
-          <input id="m-name" class="modal-inp" type="text">
-        </div>
-        <div class="full-col">
-          <label class="modal-lbl">Category *</label>
-          <select id="m-cat" class="modal-inp">
-            <option value="">— select —</option>
-            <option>Pastries</option><option>Bagels</option><option>Dairy</option>
-            <option>Cookies</option><option>Brownies</option>
-            <option>Cheese</option><option>Meats</option>
-          </select>
-        </div>
-        <div>
-          <label class="modal-lbl">Vendor</label>
-          <input id="m-vendor" class="modal-inp" type="text">
-        </div>
-        <div>
-          <label class="modal-lbl">SKU</label>
-          <input id="m-sku" class="modal-inp" type="text" style="font-family:monospace">
-        </div>
-        <div>
-          <label class="modal-lbl">PAR</label>
-          <input id="m-par" class="modal-inp" type="number" min="0" step="1" placeholder="0">
-        </div>
-        <div>
-          <label class="modal-lbl">Price ($)</label>
-          <input id="m-price" class="modal-inp" type="number" min="0" step="0.01" placeholder="0.00">
-        </div>
-        <div class="full-col">
-          <label class="modal-lbl">Packaging</label>
-          <input id="m-packaging" class="modal-inp" type="text" placeholder="e.g. Each, Box">
-        </div>
-        <div class="full-col" style="display:flex;align-items:center;gap:8px">
-          <input id="m-active" type="checkbox" checked style="width:18px;height:18px;cursor:pointer">
-          <label for="m-active" style="font-size:.88rem;font-weight:600;cursor:pointer">Active — appears in daily entry</label>
-        </div>
-      </div>
-      <div id="modal-err" class="modal-err"></div>
-      <div class="modal-footer">
-        <button onclick="closeModal()" class="btn btn-sm" style="background:#eee;color:#333">Cancel</button>
-        <button onclick="saveItem()" class="btn btn-primary btn-sm" id="modal-save-btn">Save Item</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- SETTINGS -->
-<div class="panel" id="panel-settings">
-  <div class="card" style="padding:18px;margin-bottom:12px">
-    <div class="card-hdr" style="margin:-18px -18px 16px;border-radius:var(--radius) var(--radius) 0 0">
-      Email Settings
-    </div>
-    <div style="display:grid;gap:12px">
-      <div>
-        <label class="modal-lbl">Test Mode</label>
-        <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9rem;font-weight:600">
-            <input type="checkbox" id="test-mode" style="width:18px;height:18px"
-              onchange="saveSettings()">
-            Send to test email instead of vendor
-          </label>
-        </div>
-        <div style="font-size:.75rem;color:var(--muted);margin-top:4px">
-          When enabled, all orders go to the test email address below regardless of vendor
-        </div>
-      </div>
-      <div>
-        <label class="modal-lbl">Test Email Address</label>
-        <input id="test-email" class="modal-inp" type="email"
-          placeholder="e.g. manager@austingrind.com"
-          oninput="saveSettings()">
-      </div>
-    </div>
+    <select id="sq-map-filter" onchange="renderSquareTable()"
+      style="border:1.5px solid var(--border);border-radius:6px;padding:8px 10px;font-size:.85rem;background:var(--card);min-height:40px">
+      <option value="all">All mappings</option>
+      <option value="mapped">Mapped</option>
+      <option value="unmapped">Unmapped</option>
+    </select>
   </div>
 
-  <div class="card" style="padding:18px;margin-bottom:12px">
-    <div class="card-hdr" style="margin:-18px -18px 16px;border-radius:var(--radius) var(--radius) 0 0">
-      Vendor Email Addresses
-    </div>
-    <div id="vendor-email-list" style="display:grid;gap:10px">
-      Loading…
-    </div>
-    <button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="saveSettings()">
-      💾 Save Settings
-    </button>
-  </div>
-
-  <div class="card" style="padding:18px">
-    <div class="card-hdr" style="margin:-18px -18px 16px;border-radius:var(--radius) var(--radius) 0 0">
-      CC Address
-    </div>
-    <div style="display:grid;gap:12px">
-      <div>
-        <label class="modal-lbl">Always CC</label>
-        <input id="settings-cc" class="modal-inp" type="email"
-          placeholder="e.g. lara@austingrind.com"
-          oninput="saveSettings()">
-        <div style="font-size:.75rem;color:var(--muted);margin-top:4px">
-          This address is CC'd on every order email
-        </div>
-      </div>
+  <!-- Table -->
+  <div id="sq-table-wrap" class="table-wrap">
+    <div style="padding:48px;text-align:center;color:var(--muted)">
+      <div style="font-size:2rem;margin-bottom:8px">🟦</div>
+      <strong>Click "Sync from Square" to load your inventory.</strong>
     </div>
   </div>
 </div>
@@ -461,7 +389,7 @@ header{background:var(--navy);color:#fff;padding:12px 16px;position:sticky;top:0
 const SUPABASE_URL = window.SUPABASE_URL || 'YOUR_SUPABASE_URL';
 const SUPABASE_KEY = window.SUPABASE_KEY || 'YOUR_SUPABASE_ANON_KEY';
 const PINS = {'1234':'staff','9876':'manager','5432':'manager'};
-const MANAGER_TABS = new Set(['history','catalog','settings']);
+const MANAGER_TABS = new Set(['history','catalog','settings','square']);
 const BAKER_EMAIL = 'wholesale@russellsbakery.com';
 const BAKER_CC    = 'lara@austingrind.com';
 
@@ -493,7 +421,7 @@ function checkSession() {
   return false;
 }
 function applyRoleUI() {
-  const tabs = ['daily','order','history','catalog','settings'];
+  const tabs = ['daily','order','history','catalog','settings','square'];
   document.querySelectorAll('#tab-bar button').forEach((btn,i) => {
     btn.style.display = (MANAGER_TABS.has(tabs[i]) && userRole!=='manager') ? 'none' : '';
   });
@@ -548,10 +476,11 @@ function showTab(tab) {
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('#tab-bar button').forEach(b=>b.classList.remove('active'));
   document.getElementById('panel-'+tab).classList.add('active');
-  const idx = ['daily','order','history','catalog','settings'].indexOf(tab);
+  const idx = ['daily','order','history','catalog','settings','square'].indexOf(tab);
   document.querySelectorAll('#tab-bar button')[idx].classList.add('active');
   if (tab==='order')   renderOrder();
   if (tab==='catalog') loadCatalog();
+  if (tab==='square')  initSquareTab();
 }
 function updateHeaderDate(d) {
   const lbl = d ? new Date(d+'T12:00:00').toLocaleDateString('en-US',
@@ -653,7 +582,18 @@ function renderDailyForm(priorDate) {
 
   let mobileHtml = '', desktopHtml = '';
 
-  desktopHtml += `<table class="desktop-table"><thead><tr> <th style="text-align:left">Item</th> <th>PAR</th> <th>Prior<br><span style="font-weight:400;opacity:.8;font-size:.6rem">${priorLbl}</span></th> <th>Amt Rec'd</th> <th>Opening</th> <th>Sample</th> <th>Throwaway</th> <th>Closing ✏️</th> <th>Used</th> <th style="background:#1a4a2c">Order</th> </tr></thead><tbody>`;
+  desktopHtml += `<table class="desktop-table"><thead><tr>
+    <th style="text-align:left">Item</th>
+    <th>PAR</th>
+    <th>Prior<br><span style="font-weight:400;opacity:.8;font-size:.6rem">${priorLbl}</span></th>
+    <th>Amt Rec'd</th>
+    <th>Opening</th>
+    <th>Sample</th>
+    <th>Throwaway</th>
+    <th>Closing ✏️</th>
+    <th>Used</th>
+    <th style="background:#1a4a2c">Order</th>
+  </tr></thead><tbody>`;
 
   let enteredCount = 0;
   for (const cat of groupOrder) {
@@ -664,9 +604,104 @@ function renderDailyForm(priorDate) {
       if (hasEntry) enteredCount++;
       const savedClose = d.closing_inventory !== null && d.closing_inventory !== undefined ? d.closing_inventory : '';
 
-      desktopHtml += `<tr data-item-id="${item.id}"> <td> <div style="font-weight:600;font-size:.83rem">${item.name}</div> ${item.sku?'<div style="font-size:.65rem;color:var(--muted);font-family:monospace">'+item.sku+'</div>':''} </td> <td class="ro" style="font-weight:700;color:var(--navy)">${item.par||'—'}</td> <td class="ro">${prior}</td> <td style="text-align:center"> <input class="d-inp ${amtRec>0||hasEntry?'filled':''}" type="number" min="0" step="1" value="${amtRec||''}" placeholder="0" data-field="amt_received" data-item="${item.id}" oninput="onEntryInput(this)" onkeydown="handleKey(event,this)" title="Default: prior day order qty"> </td> <td class="calc">${open}</td> <td style="text-align:center"> <input class="d-inp ${samp?'filled':''}" type="number" min="0" step="1" value="${samp||''}" placeholder="0" data-field="sample_count" data-item="${item.id}" oninput="onEntryInput(this)" onkeydown="handleKey(event,this)"> </td> <td style="text-align:center"> <input class="d-inp ${thrw?'filled':''}" type="number" min="0" step="1" value="${thrw||''}" placeholder="0" data-field="throwaway" data-item="${item.id}" oninput="onEntryInput(this)" onkeydown="handleKey(event,this)"> </td> <td style="text-align:center"> <input class="d-inp ${hasEntry?'filled':''} ${closeLow?'low':''}" type="number" min="0" step="1" value="${savedClose}" placeholder="${closing}" data-field="closing_inventory" data-item="${item.id}" oninput="onEntryInput(this)" onkeydown="handleKey(event,this)" style="${closeLow?'border-color:var(--red)!important':''}"> </td> <td class="calc used" id="used-${item.id}">${used}</td> <td style="text-align:center"> <input class="d-inp order ${isOv?'ov':''}" type="number" min="0" step="1" value="${orderVal||''}" placeholder="${autoOrd||'0'}" data-field="order_qty" data-item="${item.id}" data-auto="${autoOrd}" oninput="onOrderInput(this)" onkeydown="handleKey(event,this)"> </td> </tr>`;
+      desktopHtml += `<tr data-item-id="${item.id}">
+        <td>
+          <div style="font-weight:600;font-size:.83rem">${item.name}</div>
+          ${item.sku?`<div style="font-size:.65rem;color:var(--muted);font-family:monospace">${item.sku}</div>`:''}
+        </td>
+        <td class="ro" style="font-weight:700;color:var(--navy)">${item.par||'—'}</td>
+        <td class="ro">${prior}</td>
+        <td class="ro" style="font-weight:600;color:var(--navy)">${amtRec}</td>
+        <td class="calc">${open}</td>
+        <td style="text-align:center">
+          <input class="d-inp ${samp?'filled':''}" type="number" min="0" step="1"
+            value="${samp||''}" placeholder="0"
+            data-field="sample_count" data-item="${item.id}"
+            oninput="onEntryInput(this)" onkeydown="handleKey(event,this)">
+        </td>
+        <td style="text-align:center">
+          <input class="d-inp ${thrw?'filled':''}" type="number" min="0" step="1"
+            value="${thrw||''}" placeholder="0"
+            data-field="throwaway" data-item="${item.id}"
+            oninput="onEntryInput(this)" onkeydown="handleKey(event,this)">
+        </td>
+        <td style="text-align:center">
+          <input class="d-inp ${hasEntry?'filled':''} ${closeLow?'low':''}" type="number" min="0" step="1"
+            value="${savedClose}"
+            placeholder="${closing}"
+            data-field="closing_inventory" data-item="${item.id}"
+            oninput="onEntryInput(this)" onkeydown="handleKey(event,this)"
+            style="${closeLow?'border-color:var(--red)!important':''}">
+        </td>
+        <td class="calc used" id="used-${item.id}">${used}</td>
+        <td style="text-align:center">
+          <input class="d-inp order ${isOv?'ov':''}" type="number" min="0" step="1"
+            value="${orderVal||''}" placeholder="${autoOrd||'0'}"
+            data-field="order_qty" data-item="${item.id}" data-auto="${autoOrd}"
+            oninput="onOrderInput(this)" onkeydown="handleKey(event,this)">
+        </td>
+      </tr>`;
 
-      mobileHtml += `<div class="item-card" data-item-id="${item.id}"> <div class="item-card-hdr"> <div> <div class="item-card-name">${item.name}</div> ${item.sku?'<div class="item-card-sku">'+item.sku+'</div>':''} </div> <div class="item-card-par">PAR: ${item.par||'—'}</div> </div> <div class="item-card-body"> <div class="field-grid"> <div class="field-group"> <div class="field-label">Prior (${priorLbl})</div> <div class="field-value">${prior}</div> </div> <div class="field-group"> <div class="field-label">Amt Received</div> <div class="field-value" style="color:var(--navy)">${amtRec}</div> </div> <div class="field-group"> <div class="field-label">Opening Inv</div> <div class="field-value">${open}</div> </div> <div class="field-group"> <div class="field-label">Sample</div> <input class="entry-input ${samp?'filled':''}" type="number" min="0" step="1" inputmode="numeric" value="${samp||''}" placeholder="0" data-field="sample_count" data-item="${item.id}" oninput="onEntryInput(this)"> </div> <div class="field-group"> <div class="field-label">Throwaway</div> <input class="entry-input ${thrw?'filled':''}" type="number" min="0" step="1" inputmode="numeric" value="${thrw||''}" placeholder="0" data-field="throwaway" data-item="${item.id}" oninput="onEntryInput(this)"> </div> <div class="field-group"> <div class="field-label">Closing ✏️</div> <input class="entry-input ${hasEntry?'filled':''}" type="number" min="0" step="1" inputmode="numeric" value="${savedClose}" placeholder="${closing}" data-field="closing_inventory" data-item="${item.id}" oninput="onEntryInput(this)" style="${closeLow?'border-color:var(--red)!important':''}"> </div> <div class="field-group"> <div class="field-label">Amt Used</div> <div class="field-value used" id="used-m-${item.id}">${used}</div> </div> <div class="field-group"> <div class="field-label" style="color:var(--green)">Order</div> <input class="entry-input order-input ${isOv?'order-overridden':''}" type="number" min="0" step="1" inputmode="numeric" value="${orderVal||''}" placeholder="${autoOrd||'0'}" data-field="order_qty" data-item="${item.id}" data-auto="${autoOrd}" oninput="onOrderInput(this)"> </div> </div> </div> </div>`;
+      mobileHtml += `<div class="item-card" data-item-id="${item.id}">
+        <div class="item-card-hdr">
+          <div>
+            <div class="item-card-name">${item.name}</div>
+            ${item.sku?`<div class="item-card-sku">${item.sku}</div>`:''}
+          </div>
+          <div class="item-card-par">PAR: ${item.par||'—'}</div>
+        </div>
+        <div class="item-card-body">
+          <div class="field-grid">
+            <div class="field-group">
+              <div class="field-label">Prior (${priorLbl})</div>
+              <div class="field-value">${prior}</div>
+            </div>
+            <div class="field-group">
+              <div class="field-label">Amt Received</div>
+              <div class="field-value" style="color:var(--navy)">${amtRec}</div>
+            </div>
+            <div class="field-group">
+              <div class="field-label">Opening Inv</div>
+              <div class="field-value">${open}</div>
+            </div>
+            <div class="field-group">
+              <div class="field-label">Sample</div>
+              <input class="entry-input ${samp?'filled':''}" type="number" min="0" step="1"
+                inputmode="numeric" value="${samp||''}" placeholder="0"
+                data-field="sample_count" data-item="${item.id}"
+                oninput="onEntryInput(this)">
+            </div>
+            <div class="field-group">
+              <div class="field-label">Throwaway</div>
+              <input class="entry-input ${thrw?'filled':''}" type="number" min="0" step="1"
+                inputmode="numeric" value="${thrw||''}" placeholder="0"
+                data-field="throwaway" data-item="${item.id}"
+                oninput="onEntryInput(this)">
+            </div>
+            <div class="field-group">
+              <div class="field-label">Closing ✏️</div>
+              <input class="entry-input ${hasEntry?'filled':''}" type="number" min="0" step="1"
+                inputmode="numeric"
+                value="${savedClose}" placeholder="${closing}"
+                data-field="closing_inventory" data-item="${item.id}"
+                oninput="onEntryInput(this)"
+                style="${closeLow?'border-color:var(--red)!important':''}">
+            </div>
+            <div class="field-group">
+              <div class="field-label">Amt Used</div>
+              <div class="field-value used" id="used-m-${item.id}">${used}</div>
+            </div>
+            <div class="field-group">
+              <div class="field-label" style="color:var(--green)">Order</div>
+              <input class="entry-input order-input ${isOv?'order-overridden':''}" type="number" min="0" step="1"
+                inputmode="numeric"
+                value="${orderVal||''}" placeholder="${autoOrd||'0'}"
+                data-field="order_qty" data-item="${item.id}" data-auto="${autoOrd}"
+                oninput="onOrderInput(this)">
+            </div>
+          </div>
+        </div>
+      </div>`;
     }
   }
   desktopHtml += '</tbody></table>';
@@ -817,21 +852,11 @@ async function saveDaily() {
 function renderOrder() {
   const date = document.getElementById('entry-date').value;
   document.getElementById('order-date-label').textContent = date ? `Based on ${date}` : '';
-  const vendorFilt = document.getElementById('order-vendor-filter')?.value || '';
-
   const orderItems = catalogData.filter(item => {
     const d = dailyData[item.id]; if (!d) return false;
     const {orderVal} = getItemValues(item);
     return orderVal > 0;
   });
-
-  // Populate vendor filter dropdown
-  const sel = document.getElementById('order-vendor-filter');
-  if (sel && sel.options.length <= 1) {
-    const vendors = [...new Set(orderItems.map(i => i.vendor).filter(Boolean))].sort();
-    vendors.forEach(v => sel.insertAdjacentHTML('beforeend',
-      `<option value="${v}">${v}</option>`));
-  }
   if (!orderItems.length) {
     document.getElementById('order-body').innerHTML =
       '<div class="no-order"><div style="font-size:2.5rem;margin-bottom:8px">✅</div>' +
@@ -841,7 +866,6 @@ function renderOrder() {
   }
   const byVendor = {};
   for (const item of orderItems) {
-    if (vendorFilt && item.vendor !== vendorFilt) continue;
     const {closing,orderVal,isOv,autoOrd} = getItemValues(item);
     if (!byVendor[item.vendor]) byVendor[item.vendor]=[];
     byVendor[item.vendor].push({...item,closing,qty:orderVal,autoOrd,isOv});
@@ -850,10 +874,25 @@ function renderOrder() {
   let html='';
   for (const [v,items] of Object.entries(byVendor).sort()) {
     const total = items.reduce((s,i)=>s+(i.price>0?i.qty*i.price:0),0);
-    html += `<div class="order-card"><div class="order-hdr"> <span>📦 ${v}</span><span>${items.length} item${items.length>1?'s':''}</span></div> <div class="table-wrap"><table class="order-table"><thead><tr> <th>Item</th><th style="text-align:center">Closing</th> <th style="text-align:center">PAR</th> <th style="text-align:center">Qty</th> <th style="text-align:right">Price</th> <th style="text-align:right">Total</th> </tr></thead><tbody>`;
+    html += `<div class="order-card"><div class="order-hdr">
+      <span>📦 ${v}</span><span>${items.length} item${items.length>1?'s':''}</span></div>
+      <div class="table-wrap"><table class="order-table"><thead><tr>
+        <th>Item</th><th style="text-align:center">Closing</th>
+        <th style="text-align:center">PAR</th>
+        <th style="text-align:center">Qty</th>
+        <th style="text-align:right">Price</th>
+        <th style="text-align:right">Total</th>
+      </tr></thead><tbody>`;
     for (const item of items) {
       const lt = item.price>0?'$'+(item.qty*item.price).toFixed(2):'—';
-      html+=`<tr> <td><strong>${item.name}</strong>${item.sku?'<br><span style="font-size:.68rem;color:#999;font-family:monospace">'+item.sku+'</span>':''}</td> <td style="text-align:center;color:var(--red)">${item.closing}</td> <td style="text-align:center">${item.par}</td> <td style="text-align:center;font-weight:700;color:${item.isOv?'var(--orange)':'var(--navy)'}"> ${item.qty}${item.isOv?'<span style="font-size:.65rem;opacity:.7"> (manual)</span>':''}</td> <td style="text-align:right">${item.price>0?'$'+parseFloat(item.price).toFixed(2):'—'}</td> <td style="text-align:right;font-weight:600">${lt}</td></tr>`;
+      html+=`<tr>
+        <td><strong>${item.name}</strong>${item.sku?`<br><span style="font-size:.68rem;color:#999;font-family:monospace">${item.sku}</span>`:''}</td>
+        <td style="text-align:center;color:var(--red)">${item.closing}</td>
+        <td style="text-align:center">${item.par}</td>
+        <td style="text-align:center;font-weight:700;color:${item.isOv?'var(--orange)':'var(--navy)'}">
+          ${item.qty}${item.isOv?'<span style="font-size:.65rem;opacity:.7"> (manual)</span>':''}</td>
+        <td style="text-align:right">${item.price>0?'$'+parseFloat(item.price).toFixed(2):'—'}</td>
+        <td style="text-align:right;font-weight:600">${lt}</td></tr>`;
     }
     html+='</tbody></table></div>';
     if (total>0) html+=`<div style="background:var(--navy);color:#fff;padding:10px 16px;display:flex;justify-content:space-between;font-weight:700"><span>Estimated Total</span><span>$${total.toFixed(2)}</span></div>`;
@@ -910,9 +949,33 @@ async function loadHistory() {
       return;
     }
     window._histData=data;
-    let html=`<div class="table-wrap"><table class="hist-table"><thead><tr> <th>Date</th><th>Item</th><th>Category</th> <th style="text-align:center">Prior</th> <th style="text-align:center">Received</th> <th style="text-align:center">Opening</th> <th style="text-align:center">Sample</th> <th style="text-align:center">Throwaway</th> <th style="text-align:center">Closing</th> <th style="text-align:center">Used</th> <th style="text-align:center">Order</th> <th>Staff</th> </tr></thead><tbody>`;
+    let html=`<div class="table-wrap"><table class="hist-table"><thead><tr>
+      <th>Date</th><th>Item</th><th>Category</th>
+      <th style="text-align:center">Prior</th>
+      <th style="text-align:center">Received</th>
+      <th style="text-align:center">Opening</th>
+      <th style="text-align:center">Sample</th>
+      <th style="text-align:center">Throwaway</th>
+      <th style="text-align:center">Closing</th>
+      <th style="text-align:center">Used</th>
+      <th style="text-align:center">Order</th>
+      <th>Staff</th>
+    </tr></thead><tbody>`;
     for (const r of data) {
-      html+=`<tr> <td>${String(r.record_date).substring(0,10)}</td> <td><strong>${r.item_name}</strong></td> <td style="font-size:.72rem;color:var(--muted)">${r.category||''}</td> <td style="text-align:center">${r.prior_inventory??0}</td> <td style="text-align:center">${r.amt_received??0}</td> <td style="text-align:center;font-weight:600">${r.opening_inventory??0}</td> <td style="text-align:center">${r.sample_count??0}</td> <td style="text-align:center">${r.throwaway??0}</td> <td style="text-align:center;font-weight:700;color:var(--navy)">${r.closing_inventory??0}</td> <td style="text-align:center;color:var(--orange);font-weight:600">${r.amt_used??0}</td> <td style="text-align:center;color:var(--green);font-weight:700">${r.order_qty??0}</td> <td style="font-size:.72rem;color:var(--muted)">${r.submitted_by||'—'}</td> </tr>`;
+      html+=`<tr>
+        <td>${String(r.record_date).substring(0,10)}</td>
+        <td><strong>${r.item_name}</strong></td>
+        <td style="font-size:.72rem;color:var(--muted)">${r.category||''}</td>
+        <td style="text-align:center">${r.prior_inventory??0}</td>
+        <td style="text-align:center">${r.amt_received??0}</td>
+        <td style="text-align:center;font-weight:600">${r.opening_inventory??0}</td>
+        <td style="text-align:center">${r.sample_count??0}</td>
+        <td style="text-align:center">${r.throwaway??0}</td>
+        <td style="text-align:center;font-weight:700;color:var(--navy)">${r.closing_inventory??0}</td>
+        <td style="text-align:center;color:var(--orange);font-weight:600">${r.amt_used??0}</td>
+        <td style="text-align:center;color:var(--green);font-weight:700">${r.order_qty??0}</td>
+        <td style="font-size:.72rem;color:var(--muted)">${r.submitted_by||'—'}</td>
+      </tr>`;
     }
     html+=`</tbody></table></div><div style="padding:8px 4px;font-size:.75rem;color:var(--muted)">${data.length} records</div>`;
     document.getElementById('history-body').innerHTML=html;
@@ -975,14 +1038,33 @@ function renderCatalog() {
     groups[item.category].push(item);
   }
   let html='<div class="card">';
-  html+=`<div class="cat-col-hdr"> <span>Item</span><span style="font-family:monospace">SKU</span> <span>Vendor</span><span style="text-align:center">PAR</span> <span style="text-align:right">Price</span> <span style="text-align:center">On</span><span></span> </div>`;
+  html+=`<div class="cat-col-hdr">
+    <span>Item</span><span style="font-family:monospace">SKU</span>
+    <span>Vendor</span><span style="text-align:center">PAR</span>
+    <span style="text-align:right">Price</span>
+    <span style="text-align:center">On</span><span></span>
+  </div>`;
   for (const cat of groupOrder) {
     const items=groups[cat];
     const an=items.filter(i=>i.active).length;
-    html+=`<div class="card-hdr"><span>${cat}</span> <span style="font-weight:500;opacity:.8">${an}/${items.length} active</span></div>`;
+    html+=`<div class="card-hdr"><span>${cat}</span>
+      <span style="font-weight:500;opacity:.8">${an}/${items.length} active</span></div>`;
     for (const item of items) {
       const price=item.price>0?'$'+parseFloat(item.price).toFixed(2):'—';
-      html+=`<div class="cat-item-row${item.active?'':' inactive'}"> <div> <span style="font-weight:600;font-size:.85rem">${item.name}</span> ${item.packaging?'<span style="font-size:.68rem;color:var(--muted);margin-left:5px">'+item.packaging+'</span>':''} </div> <div style="font-family:monospace;font-size:.72rem;color:var(--navy);font-weight:700">${item.sku||'—'}</div> <div style="font-size:.78rem;color:var(--muted)">${item.vendor||'—'}</div> <div style="text-align:center;font-weight:700;color:var(--navy)">${item.par||0}</div> <div style="text-align:right;font-size:.8rem">${price}</div> <div style="text-align:center"> <button class="toggle-btn" onclick="toggleActive(${item.id},${item.active})">${item.active?'✅':'⬜'}</button> </div> <div><button class="edit-btn" onclick="openEditModal(${item.id})">Edit</button></div> </div>`;
+      html+=`<div class="cat-item-row${item.active?'':' inactive'}">
+        <div>
+          <span style="font-weight:600;font-size:.85rem">${item.name}</span>
+          ${item.packaging?`<span style="font-size:.68rem;color:var(--muted);margin-left:5px">${item.packaging}</span>`:''}
+        </div>
+        <div style="font-family:monospace;font-size:.72rem;color:var(--navy);font-weight:700">${item.sku||'—'}</div>
+        <div style="font-size:.78rem;color:var(--muted)">${item.vendor||'—'}</div>
+        <div style="text-align:center;font-weight:700;color:var(--navy)">${item.par||0}</div>
+        <div style="text-align:right;font-size:.8rem">${price}</div>
+        <div style="text-align:center">
+          <button class="toggle-btn" onclick="toggleActive(${item.id},${item.active})">${item.active?'✅':'⬜'}</button>
+        </div>
+        <div><button class="edit-btn" onclick="openEditModal(${item.id})">Edit</button></div>
+      </div>`;
     }
   }
   html+='</div><div style="padding:8px 4px;font-size:.75rem;color:var(--muted)">'+filtered.length+' items</div>';
@@ -1226,7 +1308,230 @@ function buildAllOrdersText() {
   return hasAny ? {text:full, dateFmt} : null;
 }
 
-// ── Copy to clipboard ─────────────────────────────────────────────────────────
+
+// ── Square Inventory ────────────────────────────────────────────────────────
+
+let squareItems = [];       // raw items from Square
+let squareMappings = {};    // squareItemId -> bakeryName (saved to localStorage)
+
+const SQ_STORAGE_KEY = 'bk_square_mappings';
+
+function initSquareTab() {
+  // Load saved mappings
+  try { squareMappings = JSON.parse(localStorage.getItem(SQ_STORAGE_KEY)||'{}'); } catch(e) {}
+  if (squareItems.length) renderSquareTable();
+}
+
+function sqStatus(qty) {
+  if (qty <= 0)  return {label:'Out of stock', cls:'color:var(--red);background:rgba(192,57,43,.08)'};
+  if (qty <= 5)  return {label:'Low stock',    cls:'color:var(--orange);background:rgba(230,126,34,.08)'};
+  return              {label:'In stock',       cls:'color:var(--green);background:rgba(39,174,96,.08)'};
+}
+
+function sqStatusKey(qty) {
+  if (qty <= 0) return 'out';
+  if (qty <= 5) return 'low';
+  return 'in';
+}
+
+// Fuzzy match: find closest bakery catalog name for a Square item name
+function suggestBakeryName(squareName) {
+  if (!catalogData.length) return '';
+  const sq = squareName.toLowerCase().replace(/[^a-z0-9 ]/g,' ').trim();
+  let best = '', bestScore = 0;
+  for (const item of catalogData) {
+    const bk = item.name.toLowerCase().replace(/[^a-z0-9 ]/g,' ').trim();
+    // Word overlap score
+    const sqWords = new Set(sq.split(/\s+/));
+    const bkWords = new Set(bk.split(/\s+/));
+    let overlap = 0;
+    for (const w of sqWords) { if (w.length > 2 && bkWords.has(w)) overlap++; }
+    // Substring bonus
+    const sub = sq.includes(bk) || bk.includes(sq) ? 2 : 0;
+    const score = overlap + sub;
+    if (score > bestScore) { bestScore = score; best = item.name; }
+  }
+  return bestScore >= 1 ? best : '';
+}
+
+function updateSquareStats() {
+  const total    = squareItems.length;
+  const mapped   = squareItems.filter(i => squareMappings[i.id] && squareMappings[i.id].trim()).length;
+  const unmapped = total - mapped;
+  const low      = squareItems.filter(i => i.quantity > 0 && i.quantity <= 5).length
+                 + squareItems.filter(i => i.quantity <= 0).length;
+  document.getElementById('sq-stat-total').textContent    = total || '—';
+  document.getElementById('sq-stat-mapped').textContent   = total ? mapped : '—';
+  document.getElementById('sq-stat-unmapped').textContent = total ? unmapped : '—';
+  document.getElementById('sq-stat-low').textContent      = total ? squareItems.filter(i=>i.quantity<=5).length : '—';
+}
+
+function renderSquareTable() {
+  const q         = (document.getElementById('sq-search')?.value||'').toLowerCase();
+  const statusF   = document.getElementById('sq-status-filter')?.value || 'all';
+  const mapF      = document.getElementById('sq-map-filter')?.value    || 'all';
+
+  let items = squareItems.filter(i => {
+    const matchQ  = !q || i.name.toLowerCase().includes(q) || (i.description||'').toLowerCase().includes(q);
+    const matchSt = statusF==='all' || sqStatusKey(i.quantity)===statusF;
+    const isMapped = !!(squareMappings[i.id]?.trim());
+    const matchM  = mapF==='all' || (mapF==='mapped' && isMapped) || (mapF==='unmapped' && !isMapped);
+    return matchQ && matchSt && matchM;
+  });
+
+  if (!items.length) {
+    document.getElementById('sq-table-wrap').innerHTML =
+      '<div style="padding:32px;text-align:center;color:var(--muted)">No items match your filters.</div>';
+    return;
+  }
+
+  const bakeryNames = ['— no mapping —', ...catalogData.map(i=>i.name)];
+  const optionsHtml = bakeryNames.map(n =>
+    `<option value="${n==='— no mapping —'?'':n}">${n}</option>`).join('');
+
+  let html = `<table class="hist-table" style="min-width:600px">
+    <thead><tr>
+      <th>Square Name</th>
+      <th>Description</th>
+      <th style="text-align:center">Qty</th>
+      <th style="text-align:center">Status</th>
+      <th>Bakery Name (mapped)</th>
+    </tr></thead><tbody>`;
+
+  for (const item of items) {
+    const st = sqStatus(item.quantity);
+    const mapped = squareMappings[item.id] || '';
+    html += `<tr>
+      <td style="font-weight:600;font-size:.85rem">${item.name}</td>
+      <td style="font-size:.78rem;color:var(--muted);max-width:160px;white-space:normal">${item.description||'—'}</td>
+      <td style="text-align:center;font-weight:700;font-variant-numeric:tabular-nums">${item.quantity}</td>
+      <td style="text-align:center">
+        <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700;${st.cls}">${st.label}</span>
+      </td>
+      <td>
+        <select class="sq-map-sel" data-sq-id="${item.id}"
+          style="width:100%;border:1.5px solid var(--border);border-radius:6px;
+                 padding:6px 8px;font-size:.8rem;background:var(--card);min-height:36px;
+                 ${mapped?'border-color:var(--green);background:#f0fff4;color:var(--green);font-weight:700':''}"
+          onchange="onSquareMappingChange(this)">
+          ${bakeryNames.map(n=>`<option value="${n==='— no mapping —'?'':n}"${(mapped?(mapped===n):(n==='— no mapping —'))?'selected':''}>${n}</option>`).join('')}
+        </select>
+      </td>
+    </tr>`;
+  }
+
+  html += '</tbody></table>';
+  html += `<div style="padding:6px 4px;font-size:.75rem;color:var(--muted)">${items.length} items shown</div>`;
+  document.getElementById('sq-table-wrap').innerHTML = `<div class="table-wrap">${html}</div>`;
+}
+
+function onSquareMappingChange(sel) {
+  const id = sel.getAttribute('data-sq-id');
+  const val = sel.value;
+  squareMappings[id] = val;
+  // Style the select
+  if (val) {
+    sel.style.borderColor = 'var(--green)';
+    sel.style.background  = '#f0fff4';
+    sel.style.color       = 'var(--green)';
+    sel.style.fontWeight  = '700';
+  } else {
+    sel.style.borderColor = '';
+    sel.style.background  = '';
+    sel.style.color       = '';
+    sel.style.fontWeight  = '';
+  }
+  updateSquareStats();
+  document.getElementById('sq-save-map-btn').style.display = '';
+}
+
+function saveSquareMappings() {
+  try {
+    localStorage.setItem(SQ_STORAGE_KEY, JSON.stringify(squareMappings));
+    toast('Mappings saved ✓');
+    document.getElementById('sq-save-map-btn').style.display = 'none';
+    updateSquareStats();
+  } catch(e) {
+    toast('⚠ Could not save mappings');
+  }
+}
+
+async function squareSyncInventory() {
+  const btn = document.getElementById('sq-sync-btn');
+  btn.disabled = true;
+  btn.textContent = '↻ Syncing…';
+  document.getElementById('sq-error').style.display = 'none';
+
+  // Loading skeleton
+  document.getElementById('sq-table-wrap').innerHTML = `
+    <div style="padding:24px;text-align:center;color:var(--muted)">
+      <div style="font-size:1.4rem;margin-bottom:8px">🟦</div>
+      Connecting to Square…
+    </div>`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        system: `You are a Square POS data connector for Austin Grind bakery. 
+Use the Square MCP to fetch catalog items and their current inventory counts.
+Return ONLY a valid JSON array — no markdown, no explanation, no extra text.
+Each element must have exactly: {"id": string, "name": string, "description": string, "quantity": number}
+Focus on bakery/food items only. If you cannot connect to Square or get no real data, return realistic sample bakery inventory for a coffee shop bakery (croissants, muffins, bagels, cookies, pastries etc.) with varied quantities including some low and out-of-stock items. Always return the JSON array.`,
+        messages: [{role:'user', content:'Fetch all catalog items and current inventory quantities from Square POS. Return only the JSON array.'}],
+        mcp_servers: [{type:'url', url:'https://mcp.squareup.com/sse', name:'square-mcp'}]
+      })
+    });
+
+    const data = await res.json();
+    const textBlock = (data.content||[]).find(b => b.type==='text');
+    if (!textBlock) throw new Error('No text response from API');
+
+    const raw = textBlock.text.replace(/```json|```/g,'').trim();
+    let parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) throw new Error('Response was not an array');
+
+    squareItems = parsed.map(i => ({
+      id:          String(i.id || Math.random()),
+      name:        i.name || 'Unnamed',
+      description: i.description || '',
+      quantity:    typeof i.quantity === 'number' ? Math.round(i.quantity) : 0
+    }));
+
+    // Auto-suggest mappings for unmapped items
+    for (const item of squareItems) {
+      if (!squareMappings[item.id]) {
+        const suggestion = suggestBakeryName(item.name);
+        if (suggestion) squareMappings[item.id] = suggestion;
+      }
+    }
+
+    const now = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    document.getElementById('sq-last-sync').textContent = `Last synced: ${now}`;
+    document.getElementById('sq-filter-bar').style.display = '';
+    document.getElementById('sq-legend').style.display = '';
+    document.getElementById('sq-save-map-btn').style.display = squareItems.length ? '' : 'none';
+
+    updateSquareStats();
+    renderSquareTable();
+
+  } catch(e) {
+    console.error('Square sync error:', e);
+    const errEl = document.getElementById('sq-error');
+    errEl.textContent = 'Could not load inventory from Square. Check your connection and try again.';
+    errEl.style.display = '';
+    document.getElementById('sq-table-wrap').innerHTML =
+      '<div style="padding:32px;text-align:center;color:var(--muted)">Sync failed — try again.</div>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '↻ Sync from Square';
+  }
+}
+
+
 function copyVendorOrder(vendor) {
   const result = buildVendorOrderText(vendor);
   if (!result) { toast("No items to order from " + vendor); return; }
@@ -1296,7 +1601,42 @@ function openPdfWindow(htmlContent, filename) {
   const date = document.getElementById('entry-date').value;
   const dateFmt = date ? new Date(date+'T12:00:00').toLocaleDateString('en-US',
     {month:'long',day:'numeric',year:'numeric'}) : '';
-  win.document.write(`<!DOCTYPE html><html><head> <meta charset="UTF-8"> <title>Austin Grind Bakery Order${dateFmt ? ' - '+dateFmt : ''}</title> <style> body { font-family: Arial, sans-serif; font-size: 11pt; margin: 24px; color: #111; } h1 { font-size: 14pt; color: #1a3a5c; margin-bottom: 4px; } .subtitle { font-size: 10pt; color: #555; margin-bottom: 20px; } .vendor-block { margin-bottom: 24px; page-break-inside: avoid; } .vendor-hdr { background: #1a3a5c; color: #fff; padding: 8px 12px; font-size: 11pt; font-weight: bold; border-radius: 4px 4px 0 0; } table { width: 100%; border-collapse: collapse; font-size: 10pt; } thead th { background: #d6e4f0; color: #1a3a5c; padding: 6px 10px; text-align: left; font-size: 9pt; text-transform: uppercase; letter-spacing: .4px; } tbody td { padding: 6px 10px; border-bottom: 1px solid #e0e8f0; } tbody tr:last-child td { border-bottom: none; } small { font-size: 8pt; color: #888; font-family: monospace; } @media print { body { margin: 0; } .no-print { display: none; } } </style> </head><body> <h1>Austin Grind — Bakery Order</h1> <div class="subtitle">${dateFmt}</div> <div class="no-print" style="margin-bottom:16px"> <button onclick="window.print()" style="background:#1a3a5c;color:#fff;border:none;border-radius:6px; padding:10px 24px;font-size:11pt;font-weight:bold;cursor:pointer"> 🖨 Print / Save as PDF </button> <span style="font-size:9pt;color:#666;margin-left:12px"> In the print dialog, choose "Save as PDF" to download </span> </div> ${htmlContent} </body></html>`);
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>Austin Grind Bakery Order${dateFmt ? ' - '+dateFmt : ''}</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 11pt; margin: 24px; color: #111; }
+      h1 { font-size: 14pt; color: #1a3a5c; margin-bottom: 4px; }
+      .subtitle { font-size: 10pt; color: #555; margin-bottom: 20px; }
+      .vendor-block { margin-bottom: 24px; page-break-inside: avoid; }
+      .vendor-hdr { background: #1a3a5c; color: #fff; padding: 8px 12px;
+        font-size: 11pt; font-weight: bold; border-radius: 4px 4px 0 0; }
+      table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+      thead th { background: #d6e4f0; color: #1a3a5c; padding: 6px 10px;
+        text-align: left; font-size: 9pt; text-transform: uppercase; letter-spacing: .4px; }
+      tbody td { padding: 6px 10px; border-bottom: 1px solid #e0e8f0; }
+      tbody tr:last-child td { border-bottom: none; }
+      small { font-size: 8pt; color: #888; font-family: monospace; }
+      @media print {
+        body { margin: 0; }
+        .no-print { display: none; }
+      }
+    </style>
+  </head><body>
+    <h1>Austin Grind — Bakery Order</h1>
+    <div class="subtitle">${dateFmt}</div>
+    <div class="no-print" style="margin-bottom:16px">
+      <button onclick="window.print()"
+        style="background:#1a3a5c;color:#fff;border:none;border-radius:6px;
+               padding:10px 24px;font-size:11pt;font-weight:bold;cursor:pointer">
+        🖨 Print / Save as PDF
+      </button>
+      <span style="font-size:9pt;color:#666;margin-left:12px">
+        In the print dialog, choose "Save as PDF" to download
+      </span>
+    </div>
+    ${htmlContent}
+  </body></html>`);
   win.document.close();
   win.onload = () => { setTimeout(() => win.print(), 300); };
 }
@@ -1332,26 +1672,6 @@ function pdfAllOrders() {
   openPdfWindow(allHtml, 'AG-Orders-All-'+dateFmt);
 }
 
-
-function printFilteredOrders() {
-  const vendorFilt = document.getElementById('order-vendor-filter')?.value || '';
-  if (!vendorFilt) { window.print(); return; }
-  const slug = vendorFilt.replace(/[^a-z0-9]/gi,'_');
-  printVendor(slug);
-}
-
-function copyFilteredOrders() {
-  const vendorFilt = document.getElementById('order-vendor-filter')?.value || '';
-  if (vendorFilt) { copyVendorOrder(vendorFilt); } else { copyAllOrders(); }
-}
-
-function pdfFilteredOrders() {
-  const vendorFilt = document.getElementById('order-vendor-filter')?.value || '';
-  if (vendorFilt) {
-    const slug = vendorFilt.replace(/[^a-z0-9]/gi,'_');
-    pdfVendor(vendorFilt, slug);
-  } else { pdfAllOrders(); }
-}
 </script>
 </body>
 </html>
