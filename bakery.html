@@ -1520,7 +1520,11 @@ async function squareSyncInventory() {
     </div>`;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    // PROXY_URL is set to your Cloudflare Worker URL after deployment
+    // e.g. https://austin-grind-proxy.YOUR-SUBDOMAIN.workers.dev/v1/messages
+    const PROXY_URL = window.ANTHROPIC_PROXY_URL || 'https://YOUR-WORKER.workers.dev/v1/messages';
+
+    const res = await fetch(PROXY_URL, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
