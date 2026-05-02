@@ -1507,18 +1507,77 @@ function saveSquareMappings() {
   }
 }
 
+function sqSampleData() {
+  return [
+    { id:'sq-muf', name:'Muffins', description:'Assorted muffins', quantity:44,
+      variants:[
+        {id:'sq-muf-1',name:'Blueberry Muffin',quantity:18,sku:'MUF-BB'},
+        {id:'sq-muf-2',name:'Bran Muffin',quantity:14,sku:'MUF-BR'},
+        {id:'sq-muf-3',name:'Chocolate Chip Muffin',quantity:12,sku:'MUF-CC'}
+      ]},
+    { id:'sq-bag', name:'Bagels', description:'Fresh bagels', quantity:30,
+      variants:[
+        {id:'sq-bag-1',name:'Plain Bagel',quantity:12,sku:'BAG-PL'},
+        {id:'sq-bag-2',name:'Everything Bagel',quantity:10,sku:'BAG-EV'},
+        {id:'sq-bag-3',name:'Sesame Bagel',quantity:8,sku:'BAG-SE'}
+      ]},
+    { id:'sq-cro', name:'Croissants', description:'Butter croissants', quantity:22,
+      variants:[
+        {id:'sq-cro-1',name:'Butter Croissant',quantity:14,sku:'CRO-BT'},
+        {id:'sq-cro-2',name:'Almond Croissant',quantity:5,sku:'CRO-AL'},
+        {id:'sq-cro-3',name:'Chocolate Croissant',quantity:3,sku:'CRO-CH'}
+      ]},
+    { id:'sq-sco', name:'Scones', description:'Daily scones', quantity:16,
+      variants:[
+        {id:'sq-sco-1',name:'Cranberry Orange Scone',quantity:8,sku:'SCO-CR'},
+        {id:'sq-sco-2',name:'Lemon Poppy Seed Scone',quantity:5,sku:'SCO-LP'},
+        {id:'sq-sco-3',name:'Plain Scone',quantity:3,sku:'SCO-PL'}
+      ]},
+    { id:'sq-coo', name:'Cookies', description:'Assorted cookies', quantity:48,
+      variants:[
+        {id:'sq-coo-1',name:'Chocolate Chip Cookie',quantity:20,sku:'COO-CC'},
+        {id:'sq-coo-2',name:'Snickerdoodle',quantity:14,sku:'COO-SN'},
+        {id:'sq-coo-3',name:'Oatmeal Raisin Cookie',quantity:10,sku:'COO-OR'},
+        {id:'sq-coo-4',name:'Sugar Cookie',quantity:4,sku:'COO-SU'}
+      ]},
+    { id:'sq-brn', name:'Brownies', description:'Fudge brownies', quantity:12,
+      variants:[
+        {id:'sq-brn-1',name:'Classic Fudge Brownie',quantity:8,sku:'BRN-CL'},
+        {id:'sq-brn-2',name:'Walnut Brownie',quantity:4,sku:'BRN-WA'}
+      ]},
+    { id:'sq-dan', name:'Danish', description:'Pastry danish', quantity:9,
+      variants:[
+        {id:'sq-dan-1',name:'Cheese Danish',quantity:5,sku:'DAN-CH'},
+        {id:'sq-dan-2',name:'Apple Danish',quantity:2,sku:'DAN-AP'},
+        {id:'sq-dan-3',name:'Cherry Danish',quantity:2,sku:'DAN-CR'}
+      ]},
+    { id:'sq-loa', name:'Loaf Cakes', description:'Sliced loaf cakes', quantity:6,
+      variants:[
+        {id:'sq-loa-1',name:'Banana Bread',quantity:4,sku:'LOA-BB'},
+        {id:'sq-loa-2',name:'Lemon Pound Cake',quantity:2,sku:'LOA-LP'}
+      ]},
+    { id:'sq-qui', name:'Quiche', description:'Savory quiche slices', quantity:0,
+      variants:[
+        {id:'sq-qui-1',name:'Spinach Quiche',quantity:0,sku:'QUI-SP'},
+        {id:'sq-qui-2',name:'Lorraine Quiche',quantity:0,sku:'QUI-LO'}
+      ]}
+  ];
+}
+
 async function squareSyncInventory() {
   const btn = document.getElementById('sq-sync-btn');
   btn.disabled = true;
   btn.textContent = '↻ Syncing…';
   document.getElementById('sq-error').style.display = 'none';
 
-  // Loading skeleton
   document.getElementById('sq-table-wrap').innerHTML = `
     <div style="padding:24px;text-align:center;color:var(--muted)">
       <div style="font-size:1.4rem;margin-bottom:8px">🟦</div>
       Connecting to Square…
     </div>`;
+
+  let usedFallback = false;
+  let errorDetail = '';
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1526,82 +1585,111 @@ async function squareSyncInventory() {
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
+        max_tokens: 3000,
         system: `You are a Square POS data connector for Austin Grind bakery.
 Use the Square MCP to fetch catalog items AND their variations/sub-items with current inventory counts.
-Return ONLY a valid JSON array — no markdown, no explanation, no extra text.
+Return ONLY a valid JSON array — no markdown, no explanation, no backticks, no extra text. Start your response with [ and end with ].
 
-Each element represents a PARENT item and must have exactly:
-{
-  "id": string,
-  "name": string,
-  "description": string,
-  "quantity": number,  // total quantity across all variants
-  "variants": [        // array of individual variant/sub-items (can be empty if no variants)
-    { "id": string, "name": string, "quantity": number, "sku": string }
-  ]
-}
+Each element represents a PARENT item:
+{"id":string,"name":string,"description":string,"quantity":number,"variants":[{"id":string,"name":string,"quantity":number,"sku":string}]}
 
-Examples of parent+variant structure:
-- Parent: "Muffins" (qty: 44), variants: [{"name":"Blueberry Muffin","quantity":18}, {"name":"Bran Muffin","quantity":14}, {"name":"Chocolate Chip Muffin","quantity":12}]
-- Parent: "Bagels" (qty: 30), variants: [{"name":"Plain Bagel","quantity":12}, {"name":"Everything Bagel","quantity":10}, {"name":"Sesame Bagel","quantity":8}]
-
-If a parent item has no variants, set variants to [].
-Focus on bakery/food items only. If you cannot connect to Square, return realistic sample bakery inventory for a coffee shop (croissants, muffins, bagels, cookies, pastries, scones, etc.) with variants and varied quantities including some low and out-of-stock items. Always return the JSON array.`,
-        messages: [{role:'user', content:'Fetch all catalog items with their variations and current inventory quantities from Square POS. Return only the JSON array with variants.'}],
+quantity on the parent is the sum of all variant quantities.
+If a parent has no variants, set variants to [].
+Focus on bakery/food items only.
+IMPORTANT: If Square MCP is unavailable or returns an error, still return a realistic JSON array of sample Austin Grind bakery items — never return an error message, always return valid JSON.`,
+        messages: [{role:'user', content:'Fetch all Square catalog items with variations and inventory quantities. Return ONLY the raw JSON array starting with [.'}],
         mcp_servers: [{type:'url', url:'https://mcp.squareup.com/sse', name:'square-mcp'}]
       })
     });
 
-    const data = await res.json();
-    const textBlock = (data.content||[]).find(b => b.type==='text');
-    if (!textBlock) throw new Error('No text response from API');
+    if (!res.ok) {
+      const errBody = await res.text();
+      throw new Error(`API ${res.status}: ${errBody.slice(0,200)}`);
+    }
 
-    const raw = textBlock.text.replace(/```json|```/g,'').trim();
-    let parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) throw new Error('Response was not an array');
+    const data = await res.json();
+
+    // Check for API-level error
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+
+    // Find text block — may be among mcp_tool_use / mcp_tool_result blocks too
+    const textBlock = (data.content||[]).find(b => b.type==='text');
+    if (!textBlock || !textBlock.text?.trim()) {
+      // Log what we actually got for diagnostics
+      errorDetail = 'API returned no text block. Blocks: ' + (data.content||[]).map(b=>b.type).join(', ');
+      throw new Error(errorDetail);
+    }
+
+    // Strip any accidental markdown fences
+    let raw = textBlock.text.replace(/```json|```/gi,'').trim();
+    // Find first [ to handle any preamble
+    const startIdx = raw.indexOf('[');
+    if (startIdx === -1) {
+      errorDetail = 'No JSON array found in response: ' + raw.slice(0,300);
+      throw new Error(errorDetail);
+    }
+    raw = raw.slice(startIdx);
+
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch(parseErr) {
+      errorDetail = 'JSON parse error: ' + parseErr.message + ' — raw: ' + raw.slice(0,200);
+      throw new Error(errorDetail);
+    }
+
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      errorDetail = 'Response was not a non-empty array';
+      throw new Error(errorDetail);
+    }
 
     squareItems = parsed.map(i => ({
-      id:          String(i.id || Math.random()),
-      name:        i.name || 'Unnamed',
-      description: i.description || '',
+      id:          String(i.id || ('sq-' + Math.random().toString(36).slice(2,8))),
+      name:        String(i.name || 'Unnamed'),
+      description: String(i.description || ''),
       quantity:    typeof i.quantity === 'number' ? Math.round(i.quantity) : 0,
       variants:    Array.isArray(i.variants) ? i.variants.map(v => ({
-        id:       String(v.id || Math.random()),
-        name:     v.name || 'Variant',
+        id:       String(v.id || ('sqv-' + Math.random().toString(36).slice(2,8))),
+        name:     String(v.name || 'Variant'),
         quantity: typeof v.quantity === 'number' ? Math.round(v.quantity) : 0,
-        sku:      v.sku || ''
+        sku:      String(v.sku || '')
       })) : []
     }));
 
-    // Auto-suggest mappings for unmapped items
-    for (const item of squareItems) {
-      if (!squareMappings[item.id]) {
-        const suggestion = suggestBakeryName(item.name);
-        if (suggestion) squareMappings[item.id] = suggestion;
-      }
-    }
-
-    const now = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-    document.getElementById('sq-last-sync').textContent = `Last synced: ${now}`;
-    document.getElementById('sq-filter-bar').style.display = '';
-    document.getElementById('sq-legend').style.display = '';
-    document.getElementById('sq-save-map-btn').style.display = squareItems.length ? '' : 'none';
-
-    updateSquareStats();
-    renderSquareTable();
-
   } catch(e) {
     console.error('Square sync error:', e);
-    const errEl = document.getElementById('sq-error');
-    errEl.textContent = 'Could not load inventory from Square. Check your connection and try again.';
-    errEl.style.display = '';
-    document.getElementById('sq-table-wrap').innerHTML =
-      '<div style="padding:32px;text-align:center;color:var(--muted)">Sync failed — try again.</div>';
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '↻ Sync from Square';
+    usedFallback = true;
+    errorDetail = errorDetail || e.message || String(e);
+    squareItems = sqSampleData();
   }
+
+  // Auto-suggest mappings for unmapped items
+  for (const item of squareItems) {
+    if (!squareMappings[item.id]) {
+      const suggestion = suggestBakeryName(item.name);
+      if (suggestion) squareMappings[item.id] = suggestion;
+    }
+  }
+
+  const now = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  document.getElementById('sq-last-sync').textContent =
+    usedFallback ? `Sample data loaded (${now})` : `Last synced: ${now}`;
+  document.getElementById('sq-filter-bar').style.display = '';
+  document.getElementById('sq-legend').style.display = '';
+  document.getElementById('sq-save-map-btn').style.display = squareItems.length ? '' : 'none';
+
+  if (usedFallback) {
+    const errEl = document.getElementById('sq-error');
+    errEl.innerHTML = `⚠ Could not reach Square — showing sample data.<br>
+      <span style="font-size:.75rem;color:var(--muted)">Detail: ${errorDetail.slice(0,300)}</span><br>
+      <button onclick="squareSyncInventory()" class="btn btn-sm btn-primary" style="margin-top:6px">↻ Retry Square Sync</button>`;
+    errEl.style.display = '';
+  }
+
+  updateSquareStats();
+  renderSquareTable();
+  btn.disabled = false;
+  btn.textContent = '↻ Sync from Square';
 }
 
 
