@@ -819,10 +819,10 @@ function showTab(tab) {
 }
 
 // ── Week / header ──────────────────────────────────────────────────────────
-function onWeekChange() {
+async function onWeekChange() {
   const w = document.getElementById('week-date').value;
   const todayStr = new Date().toISOString().split('T')[0];
-  viewOnlyMode = !!w && w < todayStr;
+  const isPast = !!w && w < todayStr;
 
   // Clear counts when switching dates so the view is clean
   Object.keys(counts).forEach(k => delete counts[k]);
@@ -835,8 +835,17 @@ function onWeekChange() {
     : 'Set date below';
   document.getElementById('hdr-week').textContent = lbl;
 
-  applyDateMode();
-  if (w) loadSavedCounts(w);
+  if (isPast && w) {
+    // Past date: start editable, then lock only if saved data exists
+    viewOnlyMode = false;
+    applyDateMode();
+    const hasData = await loadSavedCounts(w);
+    viewOnlyMode = !!hasData;
+    applyDateMode();
+  } else {
+    viewOnlyMode = false;
+    applyDateMode();
+  }
   loadRecentUsage();
 }
 
@@ -848,7 +857,7 @@ function applyDateMode() {
 }
 
 async function loadSavedCounts(weekDate) {
-  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return;
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return false;
   try {
     const res  = await fetch(
       `${SUPABASE_URL}/rest/v1/inventory_counts` +
@@ -857,7 +866,7 @@ async function loadSavedCounts(weekDate) {
       { headers: supaHeaders() }
     );
     const rows = await res.json();
-    if (!Array.isArray(rows) || !rows.length) return;
+    if (!Array.isArray(rows) || !rows.length) return false;
 
     // Merge DB counts into local counts — DB takes precedence over localStorage
     let changed = false;
@@ -874,8 +883,10 @@ async function loadSavedCounts(weekDate) {
       renderCount();
       toast(`Loaded ${rows.length} saved counts for this week`);
     }
+    return true; // rows existed for this date
   } catch(e) {
     console.warn('Could not load saved counts:', e);
+    return false;
   }
 }
 
@@ -1845,7 +1856,7 @@ async function saveItem() {
 }
 
 // ── Prior order columns (2 most recent order dates) ────────────────────────
-let usageData = {};   // { weeks: [{ date, counts: { item_name: order_cases } }] }
+let usageData = {};   // { weeks: [{ date, counts: { item_name: count_value } }] }
 
 async function loadRecentUsage() {
   if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return;
@@ -1853,10 +1864,10 @@ async function loadRecentUsage() {
   const weekOfRaw = document.getElementById('week-date').value;
   if (!weekOfRaw) return;
 
-  // Fetch order quantities strictly before the current date so we only show prior entries.
-  // Limit 1200 ensures we capture at least 4 full weeks even with large catalogs (~300 items/week).
+  // Fetch prior counts (count_value) for the 2 most recent saved dates before the selected date.
+  // Limit 1200 covers 4+ full weeks even with large catalogs (~300 items/week).
   const url = `${SUPABASE_URL}/rest/v1/inventory_counts`
-    + `?select=week_date,item_name,order_cases`
+    + `?select=week_date,item_name,count_value`
     + `&week_date=lt.${weekOfRaw}`
     + `&order=week_date.desc&limit=1200`;
 
@@ -1872,8 +1883,6 @@ async function loadRecentUsage() {
     const dateOnly = d => d ? String(d).substring(0, 10) : null;
 
     // Pick the 2 most recent distinct dates with any saved data.
-    // Do NOT filter by order_cases here — some weeks may have null order_cases
-    // (e.g. data uploaded manually). The column values will show "—" for null items.
     const recentWeeks = [...new Set(rows.map(r => dateOnly(r.week_date)))]
       .filter(Boolean).sort().slice(-2);
 
@@ -1881,8 +1890,8 @@ async function loadRecentUsage() {
     for (const week of recentWeeks) {
       const countsForWeek = {};
       for (const row of rows) {
-        if (dateOnly(row.week_date) === week && row.order_cases !== null) {
-          countsForWeek[row.item_name] = parseFloat(row.order_cases);
+        if (dateOnly(row.week_date) === week && row.count_value !== null) {
+          countsForWeek[row.item_name] = parseFloat(row.count_value);
         }
       }
       usageData.weeks.push({ date: week, counts: countsForWeek });
