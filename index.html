@@ -1844,24 +1844,20 @@ async function saveItem() {
   }
 }
 
-// ── 2-week usage data ──────────────────────────────────────────────────────
-let usageData = {};   // { item_name: [week1_count, week2_count] }
+// ── Prior order columns (2 most recent order dates) ────────────────────────
+let usageData = {};   // { weeks: [{ date, counts: { item_name: order_cases } }] }
 
 async function loadRecentUsage() {
   if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return;
 
-  // Get the "Week of" date from the field — use today's week if not set
   const weekOfRaw = document.getElementById('week-date').value;
   if (!weekOfRaw) return;
 
-  // We need data from the 2 weeks BEFORE the current "Week of" date.
-  // Query all rows on or before the Week Of date, ordered descending,
-  // so we get the most recent available data.
-  // We fetch enough rows to cover ~3 weeks across ~202 items = 700 rows.
+  // Fetch order quantities strictly before the current date so we only show prior entries
   const url = `${SUPABASE_URL}/rest/v1/inventory_counts`
-    + `?select=week_date,item_name,count_value,order_cases`
-    + `&week_date=lte.${weekOfRaw}`
-    + `&order=week_date.desc&limit=700`;
+    + `?select=week_date,item_name,order_cases`
+    + `&week_date=lt.${weekOfRaw}`
+    + `&order=week_date.desc&limit=500`;
 
   try {
     const res  = await fetch(url, { headers: supaHeaders() });
@@ -1872,66 +1868,26 @@ async function loadRecentUsage() {
       return;
     }
 
-    // Normalise all dates to YYYY-MM-DD
     const dateOnly = d => d ? String(d).substring(0, 10) : null;
 
-    // Find the 3 most recent distinct weeks on or before the Week Of date
-    const allWeeks = [...new Set(rows.map(r => dateOnly(r.week_date)))]
-      .filter(Boolean).sort();
-    // We want the 2 weeks immediately before "Week Of" (not the current week itself,
-    // since staff haven't counted yet — unless they already saved one).
-    // Take up to the last 3 available weeks.
-    const weeks = allWeeks.slice(-3);
+    // Pick the 2 most recent distinct dates
+    const recentWeeks = [...new Set(rows.map(r => dateOnly(r.week_date)))]
+      .filter(Boolean).sort().slice(-2);
 
-    if (weeks.length < 2) {
-      usageData = { weeks: [] };
-      renderCount();
-      return;
-    }
-
-    // Build lookup: item -> { "YYYY-MM-DD": { count, orderCases } }
-    const byItem = {};
-    for (const row of rows) {
-      const wd = dateOnly(row.week_date);
-      if (!weeks.includes(wd)) continue;
-      if (!byItem[row.item_name]) byItem[row.item_name] = {};
-      byItem[row.item_name][wd] = {
-        count:      parseFloat(row.count_value) || 0,
-        orderCases: parseFloat(row.order_cases)  || 0,
-      };
-    }
-
-    // Calculate usage for the 2 most recent consecutive week pairs
-    // Usage = prev_count + (prev_order_cases × units_per_case) − curr_count
     usageData = { weeks: [] };
-
-    const pairs = [];
-    for (let i = 1; i < weeks.length; i++) {
-      pairs.push([weeks[i-1], weeks[i]]);
-    }
-
-    for (const [prevWeek, currWeek] of pairs) {
-      const usageForWeek = {};
-      const allItems = new Set(
-        Object.keys(byItem).filter(n =>
-          byItem[n][currWeek] !== undefined && byItem[n][prevWeek] !== undefined
-        )
-      );
-      for (const itemName of allItems) {
-        const curr      = byItem[itemName][currWeek];
-        const prev      = byItem[itemName][prevWeek];
-        const invItem   = (window._activeInventory||[]).find(i => i.name === itemName)
-                       || (window._activeInventory||[]).find(i => i.name.toLowerCase() === itemName.toLowerCase());
-        const unitsCase = invItem ? (invItem.units_case || 1) : 1;
-        const usage     = prev.count + (prev.orderCases * unitsCase) - curr.count;
-        usageForWeek[itemName] = Math.round(usage * 10) / 10;
+    for (const week of recentWeeks) {
+      const countsForWeek = {};
+      for (const row of rows) {
+        if (dateOnly(row.week_date) === week && row.order_cases !== null) {
+          countsForWeek[row.item_name] = parseFloat(row.order_cases);
+        }
       }
-      usageData.weeks.push({ date: currWeek, usage: usageForWeek });
+      usageData.weeks.push({ date: week, counts: countsForWeek });
     }
 
     renderCount();
   } catch(e) {
-    console.error('Usage load error:', e);
+    console.error('Prior counts load error:', e);
     usageData = { weeks: [] };
   }
 }
@@ -1940,29 +1896,26 @@ async function loadRecentUsage() {
 const fmtDate = d => { const dt = new Date(d+'T12:00:00'); return `${dt.getMonth()+1}/${dt.getDate()}`; };
 
 function buildUsageCols(itemName) {
-  if (!usageData.weeks || !usageData.weeks.length) {
-    return `<div class="usage-col"><label>—</label><div class="usage-badge no-data">—</div></div>
-            <div class="usage-col"><label>—</label><div class="usage-badge no-data">—</div></div>`;
-  }
-  // Case-insensitive name lookup in case historical data has different casing
-  const findVal = (usageMap, name) => {
-    if (usageMap[name] !== undefined) return usageMap[name];
-    const key = Object.keys(usageMap).find(k => k.toLowerCase() === name.toLowerCase());
-    return key !== undefined ? usageMap[key] : undefined;
+  const emptyCol = `<div class="usage-col"><label>—</label><div class="usage-badge no-data">—</div></div>`;
+  // Always render exactly 2 columns; pad with empty if fewer than 2 weeks available
+  const weeks = usageData.weeks ? [...usageData.weeks] : [];
+  while (weeks.length < 2) weeks.unshift(null);
+  // Case-insensitive lookup
+  const findVal = (countsMap, name) => {
+    if (countsMap[name] !== undefined) return countsMap[name];
+    const key = Object.keys(countsMap).find(k => k.toLowerCase() === name.toLowerCase());
+    return key !== undefined ? countsMap[key] : undefined;
   };
-  return usageData.weeks.map(w => {
-    const val = findVal(w.usage, itemName);
+  return weeks.map(w => {
+    if (!w) return emptyCol;
+    const val = findVal(w.counts, itemName);
     const lbl = fmtDate(w.date);
     if (val === undefined || val === null) {
-      return `<div class="usage-col">
-        <label>${lbl}</label>
-        <div class="usage-badge no-data">—</div>
-      </div>`;
+      return `<div class="usage-col"><label>${lbl}</label><div class="usage-badge no-data">—</div></div>`;
     }
-    const color = val <= 0 ? 'color:#27ae60' : val > 20 ? 'color:#c0392b' : 'color:#1a3a5c';
     return `<div class="usage-col">
       <label>${lbl}</label>
-      <div class="usage-badge has-data" style="${color};font-size:.9rem">${val}</div>
+      <div class="usage-badge has-data">${val}</div>
     </div>`;
   }).join('');
 }
