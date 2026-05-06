@@ -1869,7 +1869,7 @@ async function loadRecentUsage() {
   const url = `${SUPABASE_URL}/rest/v1/inventory_counts`
     + `?select=week_date,item_name,count_value`
     + `&week_date=lt.${weekOfRaw}`
-    + `&order=week_date.desc&limit=1200`;
+    + `&order=week_date.desc,id.asc&limit=1200`;
 
   try {
     const res  = await fetch(url, { headers: supaHeaders() });
