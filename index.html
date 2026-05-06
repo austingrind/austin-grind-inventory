@@ -1853,11 +1853,12 @@ async function loadRecentUsage() {
   const weekOfRaw = document.getElementById('week-date').value;
   if (!weekOfRaw) return;
 
-  // Fetch order quantities strictly before the current date so we only show prior entries
+  // Fetch order quantities strictly before the current date so we only show prior entries.
+  // Limit 1200 ensures we capture at least 4 full weeks even with large catalogs (~300 items/week).
   const url = `${SUPABASE_URL}/rest/v1/inventory_counts`
     + `?select=week_date,item_name,order_cases`
     + `&week_date=lt.${weekOfRaw}`
-    + `&order=week_date.desc&limit=500`;
+    + `&order=week_date.desc&limit=1200`;
 
   try {
     const res  = await fetch(url, { headers: supaHeaders() });
@@ -1870,11 +1871,11 @@ async function loadRecentUsage() {
 
     const dateOnly = d => d ? String(d).substring(0, 10) : null;
 
-    // Pick the 2 most recent distinct dates that have actual order_cases data
-    // (skip weeks where order_cases is null for all rows — e.g. older saves)
-    const recentWeeks = [...new Set(
-      rows.filter(r => r.order_cases !== null).map(r => dateOnly(r.week_date))
-    )].filter(Boolean).sort().slice(-2);
+    // Pick the 2 most recent distinct dates with any saved data.
+    // Do NOT filter by order_cases here — some weeks may have null order_cases
+    // (e.g. data uploaded manually). The column values will show "—" for null items.
+    const recentWeeks = [...new Set(rows.map(r => dateOnly(r.week_date)))]
+      .filter(Boolean).sort().slice(-2);
 
     usageData = { weeks: [] };
     for (const week of recentWeeks) {
