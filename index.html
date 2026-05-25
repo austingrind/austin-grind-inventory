@@ -352,7 +352,33 @@
     body { background:#fff; }
     .po-card { box-shadow:none; }
   }
+
+  /* ── Historical Dashboard ── */
+  .dash-section { margin-top:18px; }
+  .dash-sep { border:none; border-top:2px solid var(--border); margin:16px 0 14px; }
+  .dash-hdr { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+  .dash-title { font-size:1rem; font-weight:700; color:var(--navy); flex:1; }
+  .dash-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .dash-controls label { font-size:.75rem; font-weight:700; color:var(--muted); }
+  .dash-controls input[type=date] { border:1.5px solid var(--border); border-radius:6px;
+    padding:5px 8px; font-size:.82rem; background:#fff; color:var(--text); }
+  .dash-chart-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  @media (max-width:700px) { .dash-chart-row { grid-template-columns:1fr; } }
+  .dash-chart-card { background:#fff; border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:14px 16px; }
+  .dash-chart-title { font-size:.72rem; font-weight:700; color:var(--muted);
+    text-transform:uppercase; letter-spacing:.4px; margin-bottom:10px; }
+  .dash-table-card { background:#fff; border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:14px 16px; margin-bottom:12px; }
+  .dash-table { width:100%; border-collapse:collapse; font-size:.85rem; }
+  .dash-table th { background:var(--cat-bg); color:var(--cat-txt); padding:7px 10px;
+    text-align:left; font-size:.72rem; font-weight:700;
+    text-transform:uppercase; letter-spacing:.3px; }
+  .dash-table td { padding:7px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .dash-table tr:last-child td { border-bottom:none; }
+  .dash-table tr:nth-child(even) td { background:var(--odd); }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -473,6 +499,49 @@
     <div class="sum-card grn"><div class="sum-val" id="s-cost">$0</div><div class="sum-lbl">Est. Total</div></div>
   </div>
   <div id="summary-body"></div>
+
+  <!-- Historical Dashboard — manager only -->
+  <div id="dash-section" class="dash-section" style="display:none">
+    <hr class="dash-sep">
+    <div class="dash-hdr">
+      <span class="dash-title">📊 Historical Analysis</span>
+      <div class="dash-controls">
+        <label>From:</label><input type="date" id="dash-from">
+        <label>To:</label><input type="date" id="dash-to">
+        <button class="btn btn-primary btn-sm" onclick="loadDashboard(true)">🔄 Refresh</button>
+      </div>
+    </div>
+    <div id="dash-loading" style="display:none;padding:24px;text-align:center;color:var(--muted)">
+      Loading historical data…
+    </div>
+    <div id="dash-content" style="display:none">
+      <div class="sum-grid" id="dash-kpis" style="margin-bottom:12px"></div>
+      <div class="dash-chart-row">
+        <div class="dash-chart-card">
+          <div class="dash-chart-title">Weekly Order Spend</div>
+          <canvas id="chart-weekly" height="220"></canvas>
+        </div>
+        <div class="dash-chart-card">
+          <div class="dash-chart-title">Spend by Category</div>
+          <canvas id="chart-category" height="220"></canvas>
+        </div>
+      </div>
+      <div class="dash-chart-row">
+        <div class="dash-chart-card">
+          <div class="dash-chart-title">Top 10 Shortage Items</div>
+          <canvas id="chart-shortage" height="280"></canvas>
+        </div>
+        <div class="dash-chart-card">
+          <div class="dash-chart-title">Vendor Spend</div>
+          <canvas id="chart-vendor" height="280"></canvas>
+        </div>
+      </div>
+      <div class="dash-table-card">
+        <div class="dash-chart-title">Chronic Shortages — items short in 3+ weeks</div>
+        <div id="dash-chronic"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ══ HISTORY (manager only) ══ -->
@@ -706,6 +775,7 @@ function applyRoleUI() {
         'border-radius:3px;padding:1px 6px;vertical-align:middle">MANAGER</span>');
     }
   }
+  document.getElementById('dash-section').style.display = userRole === 'manager' ? '' : 'none';
 }
 
 function signOut() {
@@ -746,8 +816,10 @@ function initApp() {
 
   const threeMonths = new Date();
   threeMonths.setMonth(threeMonths.getMonth() - 3);
-  document.getElementById('hist-from').value = threeMonths.toISOString().split('T')[0];
-  document.getElementById('hist-to').value   = today.toISOString().split('T')[0];
+  document.getElementById('hist-from').value  = threeMonths.toISOString().split('T')[0];
+  document.getElementById('hist-to').value    = today.toISOString().split('T')[0];
+  document.getElementById('dash-from').value  = threeMonths.toISOString().split('T')[0];
+  document.getElementById('dash-to').value    = today.toISOString().split('T')[0];
 
   onWeekChange();
 
@@ -813,7 +885,7 @@ function showTab(tab) {
   const idx = ['count','po','summary','history','catalog'].indexOf(tab);
   document.querySelectorAll('#tab-bar button')[idx].classList.add('active');
   if (tab === 'po')      renderPO();
-  if (tab === 'summary') renderSummary();
+  if (tab === 'summary') { renderSummary(); if (userRole === 'manager' && !_dashLoaded) loadDashboard(); }
   if (tab === 'catalog' && !catalogData.length) loadCatalog();
   if (tab === 'count')   loadCatalogForCount();
 }
@@ -2054,6 +2126,207 @@ function printCatalog() {
   win.document.close();
   win.focus();
   setTimeout(() => win.print(), 300);
+}
+
+// ── Historical Dashboard ───────────────────────────────────────────────────
+
+let _dashCharts = {};
+let _dashLoaded = false;
+
+async function loadDashboard(force) {
+  if (userRole !== 'manager') return;
+  if (_dashLoaded && !force) return;
+
+  const from = document.getElementById('dash-from').value;
+  const to   = document.getElementById('dash-to').value;
+  if (!from || !to) return;
+
+  document.getElementById('dash-loading').style.display = '';
+  document.getElementById('dash-content').style.display = 'none';
+
+  const url = `${SUPABASE_URL}/rest/v1/inventory_counts`
+    + `?select=week_date,item_name,category,vendor,shortage,order_cases,price_per_case,line_total`
+    + `&week_date=gte.${from}&week_date=lte.${to}`
+    + `&order=week_date.asc&limit=5000`;
+
+  try {
+    const res  = await fetch(url, { headers: supaHeaders() });
+    const data = await res.json();
+    document.getElementById('dash-loading').style.display = 'none';
+
+    if (!Array.isArray(data) || !data.length) {
+      document.getElementById('dash-content').innerHTML =
+        '<div style="padding:32px;text-align:center;color:var(--muted)">No history found for that date range.</div>';
+      document.getElementById('dash-content').style.display = '';
+      return;
+    }
+    renderDashboard(data);
+    _dashLoaded = true;
+  } catch(e) {
+    document.getElementById('dash-loading').style.display = 'none';
+    document.getElementById('dash-content').innerHTML =
+      '<div style="padding:32px;text-align:center;color:var(--red)">Error loading data. Check connection.</div>';
+    document.getElementById('dash-content').style.display = '';
+  }
+}
+
+function renderDashboard(data) {
+  const weeklySpend    = {};
+  const catSpend       = {};
+  const vendorSpend    = {};
+  const itemShortage   = {};
+  const itemShortWeeks = {};
+
+  for (const row of data) {
+    const week = (row.week_date || '').substring(0, 10);
+    const lt   = parseFloat(row.line_total)   || 0;
+    const s    = parseFloat(row.shortage)     || 0;
+    const cat  = row.category  || 'Other';
+    const vend = row.vendor    || 'Unknown';
+    const name = row.item_name || '';
+
+    if (week) weeklySpend[week] = (weeklySpend[week] || 0) + lt;
+    catSpend[cat]     = (catSpend[cat]     || 0) + lt;
+    vendorSpend[vend] = (vendorSpend[vend] || 0) + lt;
+
+    if (s > 0 && name) {
+      itemShortage[name] = (itemShortage[name] || 0) + s;
+      if (!itemShortWeeks[name]) itemShortWeeks[name] = new Set();
+      itemShortWeeks[name].add(week);
+    }
+  }
+
+  const allWeeks     = Object.keys(weeklySpend).sort();
+  const totalSpend   = Object.values(weeklySpend).reduce((a, b) => a + b, 0);
+  const avgSpend     = allWeeks.length ? totalSpend / allWeeks.length : 0;
+  const chronicItems = Object.entries(itemShortWeeks)
+    .filter(([, w]) => w.size >= 3)
+    .sort((a, b) => b[1].size - a[1].size);
+
+  // KPI row
+  document.getElementById('dash-kpis').innerHTML = `
+    <div class="sum-card blue">
+      <div class="sum-val">$${Math.round(totalSpend).toLocaleString()}</div>
+      <div class="sum-lbl">Total Spend (${allWeeks.length} wks)</div>
+    </div>
+    <div class="sum-card grn">
+      <div class="sum-val">$${Math.round(avgSpend).toLocaleString()}</div>
+      <div class="sum-lbl">Avg Weekly Spend</div>
+    </div>
+    <div class="sum-card red">
+      <div class="sum-val">${chronicItems.length}</div>
+      <div class="sum-lbl">Chronic Shortage Items</div>
+    </div>`;
+
+  // Destroy old charts before recreating
+  Object.values(_dashCharts).forEach(c => c.destroy());
+  _dashCharts = {};
+
+  const PAL = ['#1a3a5c','#2980b9','#27ae60','#e67e22','#c0392b','#8e44ad','#16a085','#f39c12','#d35400','#2c3e50'];
+  const fmt$ = v => ' $' + v.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+
+  // Chart 1 — Weekly Order Spend (bar)
+  _dashCharts.weekly = new Chart(document.getElementById('chart-weekly'), {
+    type: 'bar',
+    data: {
+      labels: allWeeks.map(w => w.substring(5)),
+      datasets: [{ data: allWeeks.map(w => weeklySpend[w] || 0), backgroundColor: '#1a3a5c', borderRadius: 4 }]
+    },
+    options: {
+      animation: { duration: 400 },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => fmt$(ctx.parsed.y) } }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => '$' + v.toLocaleString() } },
+        x: { ticks: { maxRotation: 45, font: { size: 10 } } }
+      }
+    }
+  });
+
+  // Chart 2 — Spend by Category (doughnut, top 8)
+  const catSorted = Object.entries(catSpend).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  _dashCharts.category = new Chart(document.getElementById('chart-category'), {
+    type: 'doughnut',
+    data: {
+      labels: catSorted.map(([k]) => k),
+      datasets: [{ data: catSorted.map(([,v]) => v), backgroundColor: PAL }]
+    },
+    options: {
+      animation: { duration: 400 },
+      plugins: {
+        legend: { position: 'right', labels: { font: { size: 10 }, boxWidth: 12 } },
+        tooltip: { callbacks: { label: ctx => fmt$(ctx.parsed) } }
+      }
+    }
+  });
+
+  // Chart 3 — Top 10 Shortage Items (horizontal bar, reversed so largest is on top)
+  const topShortage = Object.entries(itemShortage).sort((a,b)=>b[1]-a[1]).slice(0,10).reverse();
+  _dashCharts.shortage = new Chart(document.getElementById('chart-shortage'), {
+    type: 'bar',
+    data: {
+      labels: topShortage.map(([k]) => k),
+      datasets: [{ data: topShortage.map(([,v]) => v), backgroundColor: '#c0392b', borderRadius: 3 }]
+    },
+    options: {
+      indexAxis: 'y',
+      animation: { duration: 400 },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' shortage: ' + ctx.parsed.x.toFixed(0) } }
+      },
+      scales: { x: { beginAtZero: true } }
+    }
+  });
+
+  // Chart 4 — Vendor Spend (horizontal bar, top 8)
+  const vendSorted = Object.entries(vendorSpend).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,8).reverse();
+  _dashCharts.vendor = new Chart(document.getElementById('chart-vendor'), {
+    type: 'bar',
+    data: {
+      labels: vendSorted.map(([k]) => k),
+      datasets: [{ data: vendSorted.map(([,v]) => v), backgroundColor: '#27ae60', borderRadius: 3 }]
+    },
+    options: {
+      indexAxis: 'y',
+      animation: { duration: 400 },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => fmt$(ctx.parsed.x) } }
+      },
+      scales: { x: { beginAtZero: true, ticks: { callback: v => '$' + v.toLocaleString() } } }
+    }
+  });
+
+  // Chronic shortage table
+  let tbl = '';
+  if (chronicItems.length) {
+    tbl = `<div style="overflow-x:auto"><table class="dash-table">
+      <thead><tr><th>Item</th><th>Weeks Short</th><th>Total Shortage</th><th>Frequency</th></tr></thead>
+      <tbody>`;
+    for (const [name, weeks] of chronicItems) {
+      const pct   = allWeeks.length ? Math.round(weeks.size / allWeeks.length * 100) : 0;
+      const color = pct >= 75 ? '#c0392b' : pct >= 50 ? '#e67e22' : '#f39c12';
+      tbl += `<tr>
+        <td>${name}</td>
+        <td>${weeks.size} / ${allWeeks.length}</td>
+        <td>${(itemShortage[name] || 0).toFixed(0)}</td>
+        <td><div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:8px;background:#e0e0e0;border-radius:4px;min-width:80px">
+            <div style="width:${pct}%;height:100%;background:${color};border-radius:4px"></div>
+          </div>
+          <span style="font-size:.75rem;color:var(--muted);min-width:36px;text-align:right">${pct}%</span>
+        </div></td>
+      </tr>`;
+    }
+    tbl += '</tbody></table></div>';
+  } else {
+    tbl = '<div style="padding:16px;text-align:center;color:var(--muted)">No items were short 3 or more times in this period.</div>';
+  }
+  document.getElementById('dash-chronic').innerHTML = tbl;
+  document.getElementById('dash-content').style.display = '';
 }
 
 </script>

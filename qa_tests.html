@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Austin Grind — QA Test Suite</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family: 'Courier New', monospace; background: #0a0e1a; color: #c8d0e8; min-height:100vh; padding:24px; }
+
+  .header { border-bottom:1px solid #2a3a5c; padding-bottom:16px; margin-bottom:24px; }
+  .header h1 { font-size:1.3rem; color:#4a90d9; font-weight:700; letter-spacing:.05em; }
+  .header p  { font-size:.8rem; color:#6a7a9a; margin-top:4px; }
+
+  .controls { display:flex; gap:10px; margin-bottom:24px; flex-wrap:wrap; align-items:center; }
+  .file-label { background:#1a2a4a; border:1px solid #2a3a6a; color:#8ab4e8;
+    padding:8px 16px; border-radius:6px; cursor:pointer; font-size:.82rem;
+    font-family:inherit; transition:background .15s; }
+  .file-label:hover { background:#1e3050; }
+  #file-input { display:none; }
+  .run-btn { background:#1a5ca8; border:none; color:#fff; padding:8px 20px;
+    border-radius:6px; cursor:pointer; font-size:.85rem; font-family:inherit;
+    font-weight:700; transition:background .15s; }
+  .run-btn:hover { background:#2070c0; }
+  .run-btn:disabled { background:#1a2a4a; color:#4a5a7a; cursor:default; }
+  .file-name { font-size:.78rem; color:#6a7a9a; }
+
+  .summary { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:24px; }
+  .sum-card { background:#0e1830; border:1px solid #1a2a4a; border-radius:8px; padding:14px; text-align:center; }
+  .sum-val  { font-size:2rem; font-weight:700; }
+  .sum-lbl  { font-size:.7rem; color:#6a7a9a; text-transform:uppercase; letter-spacing:.05em; margin-top:2px; }
+  .sum-card.pass .sum-val { color:#27ae60; }
+  .sum-card.fail .sum-val { color:#e74c3c; }
+  .sum-card.warn .sum-val { color:#f39c12; }
+  .sum-card.total .sum-val { color:#4a90d9; }
+
+  .section { margin-bottom:20px; }
+  .section-hdr { font-size:.72rem; font-weight:700; color:#4a90d9; text-transform:uppercase;
+    letter-spacing:.1em; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+  .section-hdr::after { content:''; flex:1; height:1px; background:#1a2a4a; }
+
+  .test-row { display:grid; grid-template-columns:20px 1fr auto;
+    gap:8px; align-items:start; padding:5px 8px; border-radius:4px;
+    font-size:.8rem; transition:background .1s; }
+  .test-row:hover { background:#0e1830; }
+  .test-icon { font-size:.85rem; line-height:1.4; }
+  .test-msg  { color:#c8d0e8; line-height:1.4; word-break:break-word; }
+  .test-msg.fail { color:#ff6b6b; }
+  .test-msg.warn { color:#f0a030; }
+  .test-msg.pass { color:#8ab4e8; }
+  .test-tag  { font-size:.65rem; color:#4a5a7a; white-space:nowrap; align-self:center; }
+
+  .empty-state { color:#4a5a7a; font-size:.85rem; padding:40px; text-align:center; }
+  .status-bar { background:#0e1830; border:1px solid #1a2a4a; border-radius:8px;
+    padding:12px 16px; font-size:.78rem; color:#6a7a9a; margin-bottom:16px;
+    min-height:38px; }
+  .status-bar.ready  { color:#27ae60; border-color:#1a4a2a; }
+  .status-bar.error  { color:#e74c3c; border-color:#4a1a1a; }
+  .status-bar.running { color:#f39c12; border-color:#4a3a1a; }
+
+  @media (max-width:600px) {
+    .summary { grid-template-columns:repeat(2,1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚡ Austin Grind — QA Test Suite</h1>
+  <p>Static analysis for AustinGrind_Inventory.html / index.html before deploying</p>
+</div>
+
+<div class="controls">
+  <label class="file-label" for="file-input">📂 Load HTML File</label>
+  <input type="file" id="file-input" accept=".html">
+  <button class="run-btn" id="run-btn" onclick="runTests()" disabled>▶ Run Tests</button>
+  <span class="file-name" id="file-name">No file loaded</span>
+</div>
+
+<div class="status-bar" id="status">Load your index.html file to begin.</div>
+
+<div class="summary">
+  <div class="sum-card pass"><div class="sum-val" id="s-pass">—</div><div class="sum-lbl">Passed</div></div>
+  <div class="sum-card fail"><div class="sum-val" id="s-fail">—</div><div class="sum-lbl">Failed</div></div>
+  <div class="sum-card warn"><div class="sum-val" id="s-warn">—</div><div class="sum-lbl">Warnings</div></div>
+  <div class="sum-card total"><div class="sum-val" id="s-total">—</div><div class="sum-lbl">Total</div></div>
+</div>
+
+<div id="results">
+  <div class="empty-state">Results will appear here after running tests.</div>
+</div>
+
+<script>
+let fileContent = '';
+
+document.getElementById('file-input').onchange = e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  document.getElementById('file-name').textContent = file.name + ' (' + Math.round(file.size/1024) + 'KB)';
+  const reader = new FileReader();
+  reader.onload = ev => {
+    fileContent = ev.target.result;
+    document.getElementById('run-btn').disabled = false;
+    setStatus('File loaded. Click Run Tests.', 'ready');
+  };
+  reader.readAsText(file);
+};
+
+function setStatus(msg, type='') {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status-bar ' + type;
+}
+
+// ── Test definitions ─────────────────────────────────────────────────────────
+function runTests() {
+  const html    = fileContent;
+  const script  = html.slice(html.indexOf('<script>'));
+  const results = [];
+
+  const ok   = (cat, msg) => results.push({cat, msg, type:'pass'});
+  const fail = (cat, msg) => results.push({cat, msg, type:'fail'});
+  const warn = (cat, msg) => results.push({cat, msg, type:'warn'});
+
+  setStatus('Running tests…', 'running');
+
+  // ── 1. Structure ─────────────────────────────────────────────────────────
+  html.includes('<html')   ? ok('Structure','Valid HTML envelope') : fail('Structure','Missing <html> tag');
+  html.includes('<script>') ? ok('Structure','Script block present') : fail('Structure','No <script> block found');
+  html.includes('</body>') ? ok('Structure','Body closes correctly') : fail('Structure','Missing </body>');
+  html.includes('login-screen') ? ok('Structure','Login screen present') : fail('Structure','Login screen missing');
+  html.includes('id="tab-bar"') ? ok('Structure','Tab bar present') : fail('Structure','Tab bar #tab-bar missing');
+
+  // ── 2. JS Syntax ──────────────────────────────────────────────────────────
+  const nested = [...script.matchAll(/\$\{[^}]*`[^`]*`[^}]*\}/g)];
+  nested.length === 0
+    ? ok('JS Syntax','No nested backtick template literals')
+    : nested.forEach(m => fail('JS Syntax', 'Nested backtick: ' + m[0].slice(0,80)));
+
+  // Check for common syntax traps
+  (script.match(/getElementById\('hdr-sub'\)/g)||[]).length === 0
+    ? ok('JS Syntax','No stale hdr-sub reference')
+    : fail('JS Syntax','Stale getElementById("hdr-sub") — element was renamed to hdr-week');
+
+  (script.match(/getElementById\('hdr-title'\)/g)||[]).length === 0
+    ? ok('JS Syntax','No stale hdr-title reference')
+    : fail('JS Syntax','Stale getElementById("hdr-title") found');
+
+  // ── 3. Required constants ─────────────────────────────────────────────────
+  ['SUPABASE_URL','SUPABASE_KEY','PINS','MANAGER_TABS','INVENTORY','SKU_MAP'].forEach(c => {
+    script.includes('const ' + c)
+      ? ok('Constants', 'Defined: ' + c)
+      : fail('Constants', 'MISSING constant: ' + c);
+  });
+
+  // ── 4. Credentials check ─────────────────────────────────────────────────
+  // Only check the declaration lines, not the offline-mode guard comparisons
+  const urlDecl = html.match(/const SUPABASE_URL\s*=\s*'([^']+)'/)?.[1] || '';
+  const keyDecl = html.match(/const SUPABASE_KEY\s*=\s*'([^']+)'/)?.[1] || '';
+  urlDecl === 'YOUR_SUPABASE_URL'
+    ? warn('Credentials','SUPABASE_URL is placeholder — offline mode only')
+    : ok('Credentials','SUPABASE_URL configured: ' + urlDecl.slice(0,40));
+  keyDecl === 'YOUR_SUPABASE_ANON_KEY'
+    ? warn('Credentials','SUPABASE_KEY is placeholder — offline mode only')
+    : ok('Credentials','SUPABASE_KEY configured (eyJ…' + keyDecl.slice(-6) + ')');
+
+  // ── 5. Required functions ─────────────────────────────────────────────────
+  const requiredFns = [
+    'submitPin','checkSession','applyRoleUI','signOut',
+    'initApp','showTab','onWeekChange',
+    'renderCount','renderPO','renderSummary',
+    'loadHistory','loadCatalog','renderCatalog',
+    'saveCounts','setCount','handleKey',
+    'sanitizeCount','pasteSanitize','orderCases',
+    'buildUsageCols','loadRecentUsage',
+    'moveItem','printCatalog','saveItem','toggleActive',
+    'updateBadge','toast','supaHeaders',
+  ];
+  requiredFns.forEach(fn => {
+    script.includes('function ' + fn)
+      ? ok('Functions','Defined: ' + fn + '()')
+      : fail('Functions','MISSING: function ' + fn + '()');
+  });
+
+  // ── 6. Required DOM element IDs ───────────────────────────────────────────
+  const requiredIds = [
+    'login-screen','pin-input','pin-err',
+    'hdr-week','signout-btn','sync-badge','toast',
+    'tab-bar','panel-count','panel-po','panel-summary',
+    'panel-history','panel-catalog',
+    'week-date','staff-name','search','count-list',
+    'po-list','summary-body','history-body','catalog-body',
+    'hist-from','hist-to','hist-item',
+    'modal-overlay','m-name','m-cat','m-vendor','m-par',
+    'm-uc','m-pack','m-price','m-active',
+    'cnt-done','cnt-total',
+    'cnt-cat-filter','cnt-sort','cnt-uncounted','cnt-low',
+    'hist-filter-bar','hist-cat-filter','hist-vendor-filter','hist-sort',
+    'cat-cat-filter','cat-sort',
+    'po-vendor-filter','po-filter-count',
+  ];
+  requiredIds.forEach(id => {
+    html.includes('id="' + id + '"') || html.includes("id='" + id + "'")
+      ? ok('DOM Elements','#' + id + ' present')
+      : fail('DOM Elements','MISSING element: #' + id);
+  });
+
+  // ── 7. Auth integrity ─────────────────────────────────────────────────────
+  script.includes('btoa(pin)') && script.includes('atob(savedHash)')
+    ? ok('Auth','PIN hashing btoa/atob consistent')
+    : fail('Auth','PIN hash/verify mismatch');
+
+  script.includes("localStorage.setItem('ag_role'") && script.includes("localStorage.getItem('ag_role'")
+    ? ok('Auth','Role localStorage keys consistent')
+    : fail('Auth','Role localStorage keys mismatched');
+
+  script.includes('MANAGER_TABS.has(tab)')
+    ? ok('Auth','Manager tab guard present in showTab')
+    : fail('Auth','showTab missing MANAGER_TABS guard — history/catalog unprotected');
+
+  html.includes("class=\"mgr-tab\"")
+    ? ok('Auth','MGR badge on restricted tabs')
+    : warn('Auth','mgr-tab CSS class not found on tab buttons');
+
+  // ── 8. Data integrity ─────────────────────────────────────────────────────
+  try {
+    const invStart = html.indexOf('const INVENTORY = [');
+    const invEnd   = html.indexOf('];', invStart) + 2;
+    const arr      = JSON.parse(html.slice(invStart, invEnd).replace('const INVENTORY = ','').replace(/;$/,''));
+    ok('Data', 'INVENTORY valid JSON: ' + arr.length + ' items');
+    arr.length >= 190
+      ? ok('Data','INVENTORY item count looks correct (' + arr.length + ')')
+      : warn('Data','INVENTORY has only ' + arr.length + ' items (expected ~202)');
+  } catch(e) {
+    fail('Data','INVENTORY JSON parse error: ' + e.message);
+  }
+
+  try {
+    const skuStart = html.indexOf('const SKU_MAP = {');
+    const skuEnd   = html.indexOf('};', skuStart) + 2;
+    const obj      = JSON.parse(html.slice(skuStart, skuEnd).replace('const SKU_MAP = ','').replace(/;$/,''));
+    ok('Data','SKU_MAP valid JSON: ' + Object.keys(obj).length + ' entries');
+    Object.keys(obj).length >= 190
+      ? ok('Data','SKU_MAP entry count looks correct')
+      : warn('Data','SKU_MAP has only ' + Object.keys(obj).length + ' entries (expected ~202)');
+  } catch(e) {
+    fail('Data','SKU_MAP JSON parse error: ' + e.message);
+  }
+
+  // ── 9. Supabase queries ───────────────────────────────────────────────────
+  script.includes('rest/v1/inventory_counts')
+    ? ok('Supabase','History queries inventory_counts table')
+    : fail('Supabase','History query missing — check loadHistory');
+
+  script.includes('weekly_summary') && script.includes('loadHistory')
+    ? fail('Supabase','loadHistory queries weekly_summary view — REST API does not support window functions')
+    : ok('Supabase','No unsupported view queries in loadHistory');
+
+  script.includes('count_value,order_cases')
+    ? ok('Supabase','Usage query fetches order_cases correctly')
+    : warn('Supabase','order_cases not in usage query — usage calculation may be incomplete');
+
+  // ── 10. Print setup ───────────────────────────────────────────────────────
+  html.includes('printCatalog')
+    ? ok('Print','printCatalog function present')
+    : fail('Print','printCatalog missing');
+
+  html.includes('@media print')
+    ? ok('Print','Print media query present')
+    : warn('Print','No @media print styles found');
+
+  html.includes('function printCatalog') && html.includes("window.open('', '_blank')")
+    ? ok('Print','printCatalog opens new window for printing')
+    : warn('Print','printCatalog may not open clean print window');
+
+  // ── 11. Logo ──────────────────────────────────────────────────────────────
+  html.includes('data:image/png;base64') || html.includes('data:image/jpeg;base64')
+    ? ok('Assets','Logo image embedded as base64')
+    : warn('Assets','No embedded logo found');
+
+
+  // ── 12. Filter / Sort — Count tab ─────────────────────────────────────────
+  ['cnt-cat-filter','cnt-sort','cnt-uncounted','cnt-low','cnt-filter-count'].forEach(id => {
+    html.includes(`id="${id}"`)
+      ? ok('Filters — Count', `#${id} present`)
+      : fail('Filters — Count', `MISSING element: #${id}`);
+  });
+  script.includes('function populateCountCatFilter')
+    ? ok('Filters — Count', 'populateCountCatFilter() defined')
+    : fail('Filters — Count', 'MISSING: populateCountCatFilter()');
+  script.includes("sortBy === 'shortage'") && script.includes("sortBy === 'name'")
+    ? ok('Filters — Count', 'Count sort options implemented')
+    : fail('Filters — Count', 'Count sort logic missing');
+  script.includes("'cnt-uncounted'") && script.includes("'cnt-low'")
+    ? ok('Filters — Count', 'Uncounted / low-only toggles wired up')
+    : fail('Filters — Count', 'Uncounted or low-only toggle missing');
+
+  // ── 13. Filter / Sort — History tab ───────────────────────────────────────
+  ['hist-filter-bar','hist-cat-filter','hist-vendor-filter','hist-sort',
+   'hist-shortage-only','hist-filter-count'].forEach(id => {
+    html.includes(`id="${id}"`)
+      ? ok('Filters — History', `#${id} present`)
+      : fail('Filters — History', `MISSING element: #${id}`);
+  });
+  script.includes('function populateHistoryFilters')
+    ? ok('Filters — History', 'populateHistoryFilters() defined')
+    : fail('Filters — History', 'MISSING: populateHistoryFilters()');
+  script.includes('function applyHistoryFilters')
+    ? ok('Filters — History', 'applyHistoryFilters() defined')
+    : fail('Filters — History', 'MISSING: applyHistoryFilters()');
+  script.includes('function renderHistoryTable')
+    ? ok('Filters — History', 'renderHistoryTable() defined')
+    : fail('Filters — History', 'MISSING: renderHistoryTable()');
+  script.includes("sortBy === 'shortage'") && script.includes("sortBy === 'week_asc'")
+    ? ok('Filters — History', 'History sort options implemented')
+    : fail('Filters — History', 'History sort logic missing');
+  script.includes('hist-shortage-only')
+    ? ok('Filters — History', 'Shortage-only toggle wired up')
+    : fail('Filters — History', 'Shortage-only toggle missing');
+
+  // ── 14. Filter / Sort — Catalog tab ───────────────────────────────────────
+  ['cat-cat-filter','cat-sort'].forEach(id => {
+    html.includes(`id="${id}"`)
+      ? ok('Filters — Catalog', `#${id} present`)
+      : fail('Filters — Catalog', `MISSING element: #${id}`);
+  });
+  script.includes("sortBy2 === 'par_desc'") && script.includes("sortBy2 === 'price_desc'")
+    ? ok('Filters — Catalog', 'Catalog sort options implemented')
+    : fail('Filters — Catalog', 'Catalog sort logic missing');
+  script.includes("sortBy2 === 'vendor'") && script.includes("sortBy2 === 'name'")
+    ? ok('Filters — Catalog', 'Catalog sort by vendor/name implemented')
+    : fail('Filters — Catalog', 'Catalog sort by vendor/name missing');
+  script.includes('cat-cat-filter')
+    ? ok('Filters — Catalog', 'Category filter wired into renderCatalog')
+    : fail('Filters — Catalog', 'Category filter not wired into renderCatalog');
+
+  // ── 15. History sort by catalog order ─────────────────────────────────────
+  script.includes('catalogOrder') && script.includes('cat_order')
+    ? ok('Filters — History', 'History sorted by catalog order')
+    : fail('Filters — History', 'History catalog-order sort missing');
+
+
+  // ── 16. Print Orders ──────────────────────────────────────────────────────
+  const printCss = html.match(/@media print[\s\S]*?}/)?.[0] || '';
+  !printCss.includes('#panel-po') || printCss.includes('#panel-po { display: block')
+    ? ok('Print', 'panel-po not hidden during print')
+    : fail('Print', '#panel-po is hidden during print — Orders will show blank page');
+  html.includes('#panel-po { display: block !important; }')
+    ? ok('Print', 'panel-po explicitly shown during print')
+    : fail('Print', 'panel-po not explicitly shown for print');
+
+  // ── 17. Load saved counts on week change ──────────────────────────────────
+  script.includes('function loadSavedCounts')
+    ? ok('Count Tab', 'loadSavedCounts() function defined')
+    : fail('Count Tab', 'MISSING: loadSavedCounts() — week change does not load DB counts');
+  script.includes('loadSavedCounts(w)')
+    ? ok('Count Tab', 'onWeekChange calls loadSavedCounts')
+    : fail('Count Tab', 'onWeekChange does not call loadSavedCounts');
+  script.includes('week_date=eq.')
+    ? ok('Count Tab', 'loadSavedCounts queries by week_date')
+    : fail('Count Tab', 'loadSavedCounts missing week_date filter');
+
+  // ── 18. Tab renamed to Update Inventory ───────────────────────────────────
+  html.includes('Update Inventory')
+    ? ok('Count Tab', 'Tab correctly labelled "Update Inventory"')
+    : fail('Count Tab', 'Tab still labelled "Count" — should be "Update Inventory"');
+
+  // ── 19. Vendor filter on Orders tab ───────────────────────────────────────
+  html.includes('id="po-vendor-filter"')
+    ? ok('Orders Tab', '#po-vendor-filter present')
+    : fail('Orders Tab', 'MISSING: #po-vendor-filter on Orders tab');
+  html.includes('id="po-filter-count"')
+    ? ok('Orders Tab', '#po-filter-count present')
+    : fail('Orders Tab', 'MISSING: #po-filter-count on Orders tab');
+  script.includes('vendorFilt') && script.includes('filteredByV')
+    ? ok('Orders Tab', 'Vendor filter logic implemented in renderPO')
+    : fail('Orders Tab', 'Vendor filter logic missing from renderPO');
+  script.includes("getElementById('po-vendor-filter')")
+    ? ok('Orders Tab', 'downloadCSV respects vendor filter')
+    : fail('Orders Tab', 'downloadCSV does not check vendor filter');
+
+  // ── Render results ────────────────────────────────────────────────────────
+  const passes = results.filter(r=>r.type==='pass').length;
+  const fails  = results.filter(r=>r.type==='fail').length;
+  const warns  = results.filter(r=>r.type==='warn').length;
+
+  document.getElementById('s-pass').textContent  = passes;
+  document.getElementById('s-fail').textContent  = fails;
+  document.getElementById('s-warn').textContent  = warns;
+  document.getElementById('s-total').textContent = results.length;
+
+  // Group by category
+  const cats = {};
+  for (const r of results) {
+    if (!cats[r.cat]) cats[r.cat] = [];
+    cats[r.cat].push(r);
+  }
+
+  const icons = {pass:'✓', fail:'✗', warn:'⚠'};
+  let html2 = '';
+  for (const [cat, rows] of Object.entries(cats)) {
+    const catFails = rows.filter(r=>r.type==='fail').length;
+    const catWarn  = rows.filter(r=>r.type==='warn').length;
+    const badge    = catFails ? `<span style="color:#e74c3c">${catFails} ✗</span>` :
+                     catWarn  ? `<span style="color:#f39c12">${catWarn} ⚠</span>` :
+                                `<span style="color:#27ae60">all pass</span>`;
+    html2 += `<div class="section">
+      <div class="section-hdr">${cat} &nbsp; ${badge}</div>`;
+    // Show failures and warnings first, then passes (collapsed feel)
+    const sorted = [...rows].sort((a,b) => {
+      const order = {fail:0, warn:1, pass:2};
+      return order[a.type] - order[b.type];
+    });
+    for (const r of sorted) {
+      html2 += `<div class="test-row">
+        <span class="test-icon">${icons[r.type]}</span>
+        <span class="test-msg ${r.type}">${r.msg}</span>
+        <span class="test-tag">${r.type.toUpperCase()}</span>
+      </div>`;
+    }
+    html2 += '</div>';
+  }
+
+  document.getElementById('results').innerHTML = html2;
+
+  if (fails === 0) {
+    setStatus('✅ All tests passed — ' + passes + ' checks OK, ' + warns + ' warnings. Ready to deploy.', 'ready');
+  } else {
+    setStatus('❌ ' + fails + ' test(s) failed — fix before deploying. ' + warns + ' warning(s).', 'error');
+  }
+}
+</script>
+</body>
+</html>
