@@ -441,7 +441,7 @@
       oninput="localStorage.setItem('ag_staff',this.value)">
   </div>
   <div id="view-only-banner" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:8px 14px;font-size:.83rem;color:#856404;text-align:center;margin-bottom:4px;">
-    🔒 Past date — saved counts loaded (read-only).
+    <span id="view-only-msg">🔒 Past date — read-only.</span>
     <button onclick="unlockForEdit()" style="margin-left:10px;padding:3px 12px;background:#e67e22;color:#fff;border:none;border-radius:5px;font-size:.8rem;font-weight:700;cursor:pointer;vertical-align:middle;">✏️ Edit</button>
   </div>
   <div class="key-hint">
@@ -909,12 +909,13 @@ async function onWeekChange() {
   document.getElementById('hdr-week').textContent = lbl;
 
   if (isPast && w) {
-    // Past date: start editable, then lock only if saved data exists
-    viewOnlyMode = false;
+    // Past date: always read-only; Edit button unlocks for entry or correction
+    viewOnlyMode = true;
     applyDateMode();
     const hasData = await loadSavedCounts(w);
-    viewOnlyMode = !!hasData;
-    applyDateMode();
+    document.getElementById('view-only-msg').textContent = hasData
+      ? '🔒 Past date — saved counts loaded (read-only).'
+      : '🔒 Past date — no saved counts yet (read-only).';
   } else {
     viewOnlyMode = false;
     applyDateMode();
