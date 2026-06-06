@@ -441,7 +441,8 @@
       oninput="localStorage.setItem('ag_staff',this.value)">
   </div>
   <div id="view-only-banner" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:8px 14px;font-size:.83rem;color:#856404;text-align:center;margin-bottom:4px;">
-    📋 Past date — view only. Change date to today to enter counts.
+    🔒 Past date — saved counts loaded (read-only).
+    <button onclick="unlockForEdit()" style="margin-left:10px;padding:3px 12px;background:#e67e22;color:#fff;border:none;border-radius:5px;font-size:.8rem;font-weight:700;cursor:pointer;vertical-align:middle;">✏️ Edit</button>
   </div>
   <div class="key-hint">
     <span><kbd>Enter</kbd> / <kbd>Tab</kbd> — next</span>
@@ -926,6 +927,15 @@ function applyDateMode() {
   document.querySelector('.save-bar').style.display = viewOnlyMode ? 'none' : '';
   // Update existing inputs immediately (before any re-render)
   document.querySelectorAll('.count-input').forEach(inp => { inp.disabled = viewOnlyMode; });
+}
+
+function unlockForEdit() {
+  viewOnlyMode = false;
+  applyDateMode();
+  const w = document.getElementById('week-date').value;
+  const lbl = w ? new Date(w + 'T12:00:00').toLocaleDateString('en-US',
+    {month:'short', day:'numeric', year:'numeric'}) : 'past date';
+  toast(`Editing ${lbl} — save when done to overwrite`);
 }
 
 async function loadSavedCounts(weekDate) {
