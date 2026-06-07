@@ -173,6 +173,7 @@ function runTests() {
     'saveCounts','setCount','handleKey',
     'sanitizeCount','pasteSanitize','orderCases',
     'buildUsageCols','loadRecentUsage',
+    'applyDateMode','unlockForEdit',
     'moveItem','printCatalog','saveItem','toggleActive',
     'updateBadge','toast','supaHeaders',
   ];
@@ -193,6 +194,7 @@ function runTests() {
     'hist-from','hist-to','hist-item',
     'modal-overlay','m-name','m-cat','m-vendor','m-par',
     'm-uc','m-pack','m-price','m-active',
+    'view-only-banner','view-only-msg',
     'cnt-done','cnt-total',
     'cnt-cat-filter','cnt-sort','cnt-uncounted','cnt-low',
     'hist-filter-bar','hist-cat-filter','hist-vendor-filter','hist-sort',
@@ -256,9 +258,9 @@ function runTests() {
     ? fail('Supabase','loadHistory queries weekly_summary view — REST API does not support window functions')
     : ok('Supabase','No unsupported view queries in loadHistory');
 
-  script.includes('count_value,order_cases')
-    ? ok('Supabase','Usage query fetches order_cases correctly')
-    : warn('Supabase','order_cases not in usage query — usage calculation may be incomplete');
+  script.includes('count_value')
+    ? ok('Supabase','Usage query fetches count_value for prior-count columns')
+    : warn('Supabase','count_value not in usage query — prior-count columns will be blank');
 
   // ── 10. Print setup ───────────────────────────────────────────────────────
   html.includes('printCatalog')
@@ -349,7 +351,7 @@ function runTests() {
     ? ok('Print', 'panel-po explicitly shown during print')
     : fail('Print', 'panel-po not explicitly shown for print');
 
-  // ── 17. Load saved counts on week change ──────────────────────────────────
+  // ── 17. Past-date lock behaviour ─────────────────────────────────────────
   script.includes('function loadSavedCounts')
     ? ok('Count Tab', 'loadSavedCounts() function defined')
     : fail('Count Tab', 'MISSING: loadSavedCounts() — week change does not load DB counts');
@@ -359,6 +361,27 @@ function runTests() {
   script.includes('week_date=eq.')
     ? ok('Count Tab', 'loadSavedCounts queries by week_date')
     : fail('Count Tab', 'loadSavedCounts missing week_date filter');
+
+  // All past dates must be locked immediately — viewOnlyMode=true before awaiting DB
+  (script.includes('viewOnlyMode = true') && script.includes('isPast'))
+    ? ok('Count Tab', 'Past dates set viewOnlyMode=true (read-only)')
+    : fail('Count Tab', 'Past dates do not lock viewOnlyMode — edit should require the Edit button');
+
+  // Banner message must be dynamic (different for with/without saved data)
+  script.includes('view-only-msg')
+    ? ok('Count Tab', 'Banner message is dynamic via #view-only-msg span')
+    : fail('Count Tab', 'MISSING: #view-only-msg — banner cannot show context-appropriate message');
+  (script.includes('no saved counts yet') && script.includes('saved counts loaded'))
+    ? ok('Count Tab', 'Banner shows distinct message for empty vs loaded past dates')
+    : fail('Count Tab', 'Banner message does not distinguish empty vs loaded past dates');
+
+  // Edit button unlocks for both cases
+  script.includes('function unlockForEdit')
+    ? ok('Count Tab', 'unlockForEdit() defined — Edit button works for all past dates')
+    : fail('Count Tab', 'MISSING: unlockForEdit() — Edit button has no handler');
+  html.includes('onclick="unlockForEdit()"')
+    ? ok('Count Tab', 'Edit button calls unlockForEdit() in banner')
+    : fail('Count Tab', 'Edit button in banner is missing or not wired to unlockForEdit()');
 
   // ── 18. Tab renamed to Update Inventory ───────────────────────────────────
   html.includes('Update Inventory')
