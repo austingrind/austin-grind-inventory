@@ -398,7 +398,7 @@
         onkeydown="if(event.key==='Enter')submitPin()">
       <div class="pin-err" id="pin-err"></div>
       <button class="pin-btn" onclick="submitPin()">Sign In</button>
-      <div class="pin-hint">Staff and manager PINs both work here</div>
+      <div class="pin-hint">Staff, manager, and super admin PINs all work here</div>
     </div>
   </div>
 </div>
@@ -711,15 +711,25 @@ const SUPABASE_URL = window.SUPABASE_URL || 'YOUR_SUPABASE_URL';
 const SUPABASE_KEY = window.SUPABASE_KEY || 'YOUR_SUPABASE_ANON_KEY';
 
 // PINs: add or remove as needed, format is 'PIN': 'role'
-// role must be 'staff' or 'manager'
+// role must be 'staff', 'manager', or 'superadmin'
 const PINS = {
-  '1234': 'staff',    // ← change to your staff PIN
-  '9876': 'manager',  // ← change to your manager PIN
-  '5432': 'manager',  // ← optional extra manager PIN — delete line if not needed
+  '1234': 'staff',       // ← change to your staff PIN
+  '9876': 'manager',     // ← change to your manager PIN
+  '5432': 'manager',     // ← optional extra manager PIN — delete line if not needed
+  '2468': 'superadmin',  // ← Super Admin PIN — CHANGE THIS before deploying
 };
 
-// Tabs that require manager role
-const MANAGER_TABS = new Set(['history', 'catalog']);
+// Tabs that require manager role or above
+const MANAGER_TABS = new Set(['catalog']);
+// Tabs that require superadmin role
+const SUPERADMIN_TABS = new Set(['history']);
+
+// Categories only the Super Admin may manage; their pricing is hidden
+// from staff and managers everywhere (catalog, orders, summary, dashboard)
+const RESTRICTED_CATEGORIES = new Set(['COFFEE 5 LB', 'COFFEE VAC PAC']);
+const isSuper      = () => userRole === 'superadmin';
+const isManagerUp  = () => userRole === 'manager' || userRole === 'superadmin';
+const isRestricted = item => RESTRICTED_CATEGORIES.has(item && item.category);
 // ──────────────────────────────────────────────────────────────────────────
 
 
@@ -758,30 +768,37 @@ function checkSession() {
 }
 
 function applyRoleUI() {
-  // Hide manager tabs for staff, show for managers
+  // Hide role-gated tabs: catalog needs manager+, history needs superadmin
   const buttons = document.querySelectorAll('#tab-bar button');
   const tabNames = ['count','po','summary','history','catalog'];
   buttons.forEach((btn, i) => {
     const tab = tabNames[i];
-    btn.style.display = (MANAGER_TABS.has(tab) && userRole !== 'manager') ? 'none' : '';
+    const hidden = (SUPERADMIN_TABS.has(tab) && !isSuper()) ||
+                   (MANAGER_TABS.has(tab) && !isManagerUp());
+    btn.style.display = hidden ? 'none' : '';
   });
   // Show sign-out button
   document.getElementById('signout-btn').style.display = '';
-  // Manager badge in header
-  if (userRole === 'manager') {
-    const hw = document.getElementById('hdr-week');
-    if (!hw.querySelector('.mgr-badge')) {
-      hw.insertAdjacentHTML('beforeend',
-        ' <span class="mgr-badge" style="background:#f39c12;color:#fff;font-size:.62rem;font-weight:700;' +
-        'border-radius:3px;padding:1px 6px;vertical-align:middle">MANAGER</span>');
-    }
-  }
-  document.getElementById('dash-section').style.display = userRole === 'manager' ? '' : 'none';
+  // Role badge in header
+  applyRoleBadge();
+  document.getElementById('dash-section').style.display = isManagerUp() ? '' : 'none';
+}
+
+function applyRoleBadge() {
+  if (!isManagerUp()) return;
+  const hw = document.getElementById('hdr-week');
+  if (hw.querySelector('.mgr-badge')) return;
+  const label = isSuper() ? 'SUPER ADMIN' : 'MANAGER';
+  const color = isSuper() ? '#8e44ad' : '#f39c12';
+  hw.insertAdjacentHTML('beforeend',
+    ` <span class="mgr-badge" style="background:${color};color:#fff;font-size:.62rem;font-weight:700;` +
+    'border-radius:3px;padding:1px 6px;vertical-align:middle">' + label + '</span>');
 }
 
 function signOut() {
   if (!confirm('Sign out?')) return;
   userRole = null;
+  _dashLoaded = false;   // next sign-in reloads dashboard with that role's visibility
   localStorage.removeItem('ag_role');
   localStorage.removeItem('ag_pin_hash');
   document.getElementById('pin-input').value = '';
@@ -877,7 +894,10 @@ async function loadCatalogForCount() {
 
 // ── Tab switching ──────────────────────────────────────────────────────────
 function showTab(tab) {
-  if (MANAGER_TABS.has(tab) && userRole !== 'manager') {
+  if (SUPERADMIN_TABS.has(tab) && !isSuper()) {
+    toast('Super Admin access required'); return;
+  }
+  if (MANAGER_TABS.has(tab) && !isManagerUp()) {
     toast('Manager access required'); return;
   }
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -886,7 +906,7 @@ function showTab(tab) {
   const idx = ['count','po','summary','history','catalog'].indexOf(tab);
   document.querySelectorAll('#tab-bar button')[idx].classList.add('active');
   if (tab === 'po')      renderPO();
-  if (tab === 'summary') { renderSummary(); if (userRole === 'manager' && !_dashLoaded) loadDashboard(); }
+  if (tab === 'summary') { renderSummary(); if (isManagerUp() && !_dashLoaded) loadDashboard(); }
   if (tab === 'catalog' && !catalogData.length) loadCatalog();
   if (tab === 'count')   loadCatalogForCount();
 }
@@ -907,6 +927,7 @@ async function onWeekChange() {
         {month:'short', day:'numeric', year:'numeric'})
     : 'Set date below';
   document.getElementById('hdr-week').textContent = lbl;
+  applyRoleBadge();   // textContent wipes the badge — re-add it
 
   if (isPast && w) {
     // Past date: always read-only; Edit button unlocks for entry or correction
@@ -1276,7 +1297,8 @@ async function saveCounts() {
 
 // ── PO ─────────────────────────────────────────────────────────────────────
 function renderPO() {
-  const poSrc = window._activeInventory || [];
+  // Coffee categories are Super Admin only — hide their orders from other roles
+  const poSrc = (window._activeInventory || []).filter(i => isSuper() || !isRestricted(i));
 
   // Build full vendor list for filter dropdown
   const byV = {};
@@ -1363,12 +1385,14 @@ function renderSummary() {
   const sumSrc = window._activeInventory || [];
   const done  = sumSrc.filter(i=>counts[i.name]!==undefined&&counts[i.name]!=='').length;
   const short = sumSrc.filter(i=>{const c=counts[i.name];return c!==undefined&&c!==''&&parseFloat(c)<i.par;});
-  const cost  = short.reduce((s,item)=>{const oc=orderCases(item);return s+(oc&&item.price>0?oc*item.price:0);},0);
+  // Coffee pricing/orders are Super Admin only — exclude from cost + vendor breakdown
+  const shortVisible = short.filter(i => isSuper() || !isRestricted(i));
+  const cost  = shortVisible.reduce((s,item)=>{const oc=orderCases(item);return s+(oc&&item.price>0?oc*item.price:0);},0);
   document.getElementById('s-counted').textContent = done;
   document.getElementById('s-short').textContent   = short.length;
   document.getElementById('s-cost').textContent    = '$'+cost.toFixed(0);
   const byV={};
-  for(const item of short){const oc=orderCases(item);if(!byV[item.vendor])byV[item.vendor]={n:0,cost:0};byV[item.vendor].n++;if(oc&&item.price>0)byV[item.vendor].cost+=oc*item.price;}
+  for(const item of shortVisible){const oc=orderCases(item);if(!byV[item.vendor])byV[item.vendor]={n:0,cost:0};byV[item.vendor].n++;if(oc&&item.price>0)byV[item.vendor].cost+=oc*item.price;}
   let html='';
   if(Object.keys(byV).length){
     html=`<div style="background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden">
@@ -1571,7 +1595,7 @@ function downloadHistory() {
 }
 
 function downloadCSV() {
-  const poSrc     = window._activeInventory || [];
+  const poSrc     = (window._activeInventory || []).filter(i => isSuper() || !isRestricted(i));
   const vendorFilt = document.getElementById('po-vendor-filter')?.value || '';
   const byV = {};
   for (const item of poSrc) {
@@ -1691,9 +1715,10 @@ function renderCatalog() {
       <span style="font-weight:500;opacity:.8">${activeN}/${items.length} active</span>
     </div><div class="item-list">`;
     for (const item of items) {
+      const locked = isRestricted(item) && !isSuper();   // Coffee = Super Admin only
       const cls   = item.active ? '' : ' inactive';
       const icon  = item.active ? '✅' : '⬜';
-      const price = item.price > 0 ? '$'+parseFloat(item.price).toFixed(2) : '—';
+      const price = locked ? '🔒' : (item.price > 0 ? '$'+parseFloat(item.price).toFixed(2) : '—');
       const isFirst = groups[cat].indexOf(item) === 0;
       const isLast  = groups[cat].indexOf(item) === groups[cat].length - 1;
       html += `<div class="cat-item-row${cls}">
@@ -1708,17 +1733,19 @@ function renderCatalog() {
         <div class="hide-sm" style="font-size:.8rem;color:var(--muted)">${item.pack||'—'}</div>
         <div class="hide-sm" style="text-align:right;font-size:.82rem;color:var(--muted)">${price}</div>
         <div style="text-align:center">
-          <button class="toggle-btn" title="${item.active?'Deactivate':'Activate'}"
-            onclick="toggleActive(${item.id},${item.active})">${icon}</button>
+          <button class="toggle-btn" ${locked?'disabled':''} title="${locked?'Super Admin only':(item.active?'Deactivate':'Activate')}"
+            ${locked?'style="opacity:.3;cursor:default"':''} onclick="toggleActive(${item.id},${item.active})">${icon}</button>
         </div>
         <div style="display:flex;gap:4px;align-items:center">
           <div class="reorder-btns">
             <button class="reorder-btn" onclick="moveItem(${item.id},'up')"
-              ${isFirst?'disabled':''} title="Move up">▲</button>
+              ${(isFirst||locked)?'disabled':''} title="Move up">▲</button>
             <button class="reorder-btn" onclick="moveItem(${item.id},'down')"
-              ${isLast?'disabled':''} title="Move down">▼</button>
+              ${(isLast||locked)?'disabled':''} title="Move down">▼</button>
           </div>
-          <button class="edit-btn" onclick="openEditModal(${item.id})">Edit</button>
+          ${locked
+            ? '<span title="Super Admin only" style="font-size:.75rem;color:var(--muted);padding:3px 8px">🔒</span>'
+            : '<button class="edit-btn" onclick="openEditModal(' + item.id + ')">Edit</button>'}
         </div>
       </div>`;
     }
@@ -1732,6 +1759,8 @@ function renderCatalog() {
 }
 
 async function toggleActive(id, current) {
+  const target = catalogData.find(i=>i.id===id);
+  if (isRestricted(target) && !isSuper()) { toast('☕ Coffee items — Super Admin only'); return; }
   const newVal = !current;
   if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
     const item = catalogData.find(i=>i.id===id);
@@ -1752,7 +1781,8 @@ async function toggleActive(id, current) {
 
 // ── Modal ──────────────────────────────────────────────────────────────────
 function populateCatDropdown(selected) {
-  const cats = [...new Set(catalogData.map(i=>i.category))].sort();
+  const cats = [...new Set(catalogData.map(i=>i.category))]
+    .filter(c => isSuper() || !RESTRICTED_CATEGORIES.has(c)).sort();
   document.getElementById('m-cat').innerHTML =
     '<option value="">— select —</option>' +
     cats.map(c=>`<option value="${c}"${c===selected?' selected':''}>${c}</option>`).join('');
@@ -1795,6 +1825,7 @@ function openAddModal() {
 function openEditModal(id) {
   const item = catalogData.find(i=>i.id===id);
   if (!item) return;
+  if (isRestricted(item) && !isSuper()) { toast('☕ Coffee items — Super Admin only'); return; }
   editingId=id; newCatMode=false;
   document.getElementById('modal-title').textContent='Edit Item';
   document.getElementById('modal-save-btn').textContent='Save Changes';
@@ -1842,6 +1873,9 @@ async function saveItem() {
   if (!name)   { showModalErr('Item name is required.'); return; }
   if (!cat)    { showModalErr('Category is required.'); return; }
   if (!vendor) { showModalErr('Vendor is required.'); return; }
+  if (RESTRICTED_CATEGORIES.has(cat) && !isSuper()) {
+    showModalErr('Coffee categories are managed by the Super Admin.'); return;
+  }
 
   const dup = catalogData.find(i=>i.name.toLowerCase()===name.toLowerCase()&&i.id!==editingId);
   if (dup) { showModalErr(`"${name}" already exists in the catalog.`); return; }
@@ -2019,6 +2053,7 @@ function buildUsageCols(itemName) {
 async function moveItem(id, direction) {
   const item = catalogData.find(i => i.id === id);
   if (!item) return;
+  if (isRestricted(item) && !isSuper()) { toast('☕ Coffee items — Super Admin only'); return; }
 
   // Get all items in same category sorted by current item_order
   const catItems = catalogData
@@ -2109,7 +2144,8 @@ function printCatalog() {
         <tbody>`;
     items.forEach((item, idx) => {
       const bg = idx % 2 === 0 ? '#ffffff' : '#f7fafc';
-      const price = item.price > 0 ? '$' + parseFloat(item.price).toFixed(2) : '—';
+      const price = (isRestricted(item) && !isSuper()) ? '—'
+        : (item.price > 0 ? '$' + parseFloat(item.price).toFixed(2) : '—');
       body += `
           <tr style="background:${bg}">
             <td style="padding:5px 8px;font-weight:600;border-bottom:1px solid #e0e0e0">${item.name}</td>
@@ -2145,7 +2181,7 @@ let _dashCharts = {};
 let _dashLoaded = false;
 
 async function loadDashboard(force) {
-  if (userRole !== 'manager') return;
+  if (!isManagerUp()) return;
   if (_dashLoaded && !force) return;
 
   const from = document.getElementById('dash-from').value;
@@ -2171,7 +2207,9 @@ async function loadDashboard(force) {
       document.getElementById('dash-content').style.display = '';
       return;
     }
-    renderDashboard(data);
+    // Coffee spend is Super Admin only — exclude those rows for managers
+    renderDashboard(isSuper() ? data
+      : data.filter(r => !RESTRICTED_CATEGORIES.has(r.category)));
     _dashLoaded = true;
   } catch(e) {
     document.getElementById('dash-loading').style.display = 'none';
