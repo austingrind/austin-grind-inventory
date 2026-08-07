@@ -795,15 +795,31 @@ async function loadCatalogAndDaily() {
       }
     }
     dailyData = {};
+    const loadDow = new Date(date+'T12:00:00').getDay();
+    const loadIsOrderDay = !orderScheduleLoaded || orderDays.has(loadDow);
     for (const r of todayRecords) {
-      dailyData[parseInt(r.item_id)] = {
+      const iid  = parseInt(r.item_id);
+      const noon = r.noon_inventory ?? null;
+      // A saved order_qty is treated as a manual override. If it simply matches
+      // what the auto-calc produces from this row's own noon count, it was the
+      // auto value — keep it null so it stays live and follows later edits.
+      let savedQty = r.order_qty ?? null;
+      const cat = catalogData.find(c => parseInt(c.id) === iid);
+      if (savedQty !== null && cat) {
+        const p    = (dayParOverrides[iid]?.[loadDow] ?? cat.par) || 0;
+        const upk  = cat.units_per_pkg || 1;
+        const raw  = (loadIsOrderDay && noon !== null) ? Math.max(p - noon, 0) : 0;
+        const auto = upk > 1 ? Math.ceil(raw / upk) : raw;
+        if (savedQty === auto) savedQty = null;
+      }
+      dailyData[iid] = {
         id: r.id,
         amt_received:  r.amt_received  ?? null,
         sample_count:  r.sample_count  ?? 0,
         throwaway:     r.throwaway     ?? 0,
-        noon_inventory: r.noon_inventory ?? null,
+        noon_inventory: noon,
         closing_inventory: r.closing_inventory ?? null,
-        order_qty:     r.order_qty     ?? null,
+        order_qty:     savedQty,
       };
     }
     renderDailyForm(priorDate);
@@ -1113,7 +1129,12 @@ async function saveDaily() {
       record_date:date, item_id:item.id, item_name:item.name, category:item.category,
       prior_inventory:prior, amt_received:amtRec,
       sample_count:samp, throwaway:thrw, noon_inventory:noonInv, closing_inventory:closing,
-      order_qty: savingOrderDay ? (d.order_qty!==null&&d.order_qty!==undefined ? d.order_qty : autoOrd) : 0,
+      // Never persist a 0 that only means "noon inventory not taken yet" — a saved
+      // value is read back as a manual override, so an early-morning save would
+      // permanently suppress the order. No noon count = no basis = null.
+      order_qty: !savingOrderDay ? 0
+        : (d.order_qty!==null&&d.order_qty!==undefined) ? d.order_qty
+        : (noonInv===null ? null : autoOrd),
       submitted_by:staff,
     });
   }
@@ -1164,9 +1185,10 @@ function renderOrder() {
   }
   const byVendor = {};
   for (const item of pending) {
-    const {noonInv,closing,orderVal,isOv,autoOrd} = getItemValues(item);
+    const {noonInv,closing,orderVal,isOv,autoOrd,par} = getItemValues(item);
     if (!byVendor[item.vendor]) byVendor[item.vendor]=[];
-    byVendor[item.vendor].push({...item,noonInv,closing,qty:orderVal,autoOrd,isOv});
+    // par last: the effective day-of-week PAR, not the base catalog par from ...item
+    byVendor[item.vendor].push({...item,noonInv,closing,qty:orderVal,autoOrd,isOv,par});
   }
   let html='';
   for (const [v,items] of Object.entries(byVendor).sort()) {

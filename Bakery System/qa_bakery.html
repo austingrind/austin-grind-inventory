@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Austin Grind — Bakery QA Test Suite</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Courier New',monospace; background:#0a0e1a; color:#c8d0e8; min-height:100vh; padding:24px; }
+
+  .header { border-bottom:1px solid #2a3a5c; padding-bottom:16px; margin-bottom:24px; }
+  .header h1 { font-size:1.3rem; color:#4a90d9; font-weight:700; letter-spacing:.05em; }
+  .header p  { font-size:.8rem; color:#6a7a9a; margin-top:4px; }
+
+  .controls { display:flex; gap:10px; margin-bottom:24px; flex-wrap:wrap; align-items:center; }
+  .file-label { background:#1a2a4a; border:1px solid #2a3a6a; color:#8ab4e8;
+    padding:8px 16px; border-radius:6px; cursor:pointer; font-size:.82rem;
+    font-family:inherit; transition:background .15s; }
+  .file-label:hover { background:#1e3050; }
+  #file-input { display:none; }
+  .run-btn { background:#1a5ca8; border:none; color:#fff; padding:8px 20px;
+    border-radius:6px; cursor:pointer; font-size:.85rem; font-family:inherit;
+    font-weight:700; transition:background .15s; }
+  .run-btn:hover { background:#2070c0; }
+  .run-btn:disabled { background:#1a2a4a; color:#4a5a7a; cursor:default; }
+  .file-name { font-size:.78rem; color:#6a7a9a; }
+
+  .status-bar { background:#0e1830; border:1px solid #1a2a4a; border-radius:8px;
+    padding:12px 16px; font-size:.82rem; color:#8a9aba; margin-bottom:24px; }
+  .status-bar.ready { border-color:#27ae60; color:#7deca1; }
+  .status-bar.error { border-color:#e74c3c; color:#ff9999; }
+
+  .summary { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:24px; }
+  .sum-card { background:#0e1830; border:1px solid #1a2a4a; border-radius:8px; padding:14px; text-align:center; }
+  .sum-val  { font-size:2rem; font-weight:700; }
+  .sum-lbl  { font-size:.7rem; color:#6a7a9a; text-transform:uppercase; letter-spacing:.05em; margin-top:2px; }
+  .sum-card.pass .sum-val { color:#27ae60; }
+  .sum-card.fail .sum-val { color:#e74c3c; }
+  .sum-card.warn .sum-val { color:#f39c12; }
+  .sum-card.total .sum-val { color:#4a90d9; }
+
+  .section { margin-bottom:20px; }
+  .section-hdr { font-size:.72rem; font-weight:700; color:#4a90d9; text-transform:uppercase;
+    letter-spacing:.08em; padding:6px 0; border-bottom:1px solid #1a2a4a; margin-bottom:6px; }
+  .test-row { display:flex; gap:10px; align-items:flex-start; padding:4px 6px; font-size:.78rem; }
+  .test-row:nth-child(even) { background:#0c1424; }
+  .test-icon { flex:none; width:16px; }
+  .test-msg  { flex:1; line-height:1.4; }
+  .test-msg.pass { color:#8a9aba; }
+  .test-msg.fail { color:#ff9999; }
+  .test-msg.warn { color:#ffd27d; }
+  .test-tag { flex:none; font-size:.62rem; color:#4a5a7a; letter-spacing:.06em; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>AUSTIN GRIND — BAKERY QA TEST SUITE</h1>
+  <p>Static analysis for Bakery System/bakery.html before deploying</p>
+</div>
+
+<div class="controls">
+  <label class="file-label" for="file-input">📁 Choose bakery.html</label>
+  <input type="file" id="file-input" accept=".html">
+  <button class="run-btn" id="run-btn" onclick="runTests()" disabled>▶ Run Tests</button>
+  <span class="file-name" id="file-name"></span>
+</div>
+
+<div class="status-bar" id="status">Load your bakery.html file to begin.</div>
+
+<div class="summary" id="summary" style="display:none">
+  <div class="sum-card total"><div class="sum-val" id="s-total">0</div><div class="sum-lbl">Checks</div></div>
+  <div class="sum-card pass"><div class="sum-val" id="s-pass">0</div><div class="sum-lbl">Passed</div></div>
+  <div class="sum-card fail"><div class="sum-val" id="s-fail">0</div><div class="sum-lbl">Failed</div></div>
+  <div class="sum-card warn"><div class="sum-val" id="s-warn">0</div><div class="sum-lbl">Warnings</div></div>
+</div>
+
+<div id="results"></div>
+
+<script>
+let fileHtml = '';
+
+document.getElementById('file-input').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    fileHtml = ev.target.result;
+    document.getElementById('file-name').textContent = f.name + ' (' + Math.round(f.size/1024) + ' KB)';
+    document.getElementById('run-btn').disabled = false;
+    setStatus('File loaded. Click Run Tests.', '');
+  };
+  r.readAsText(f);
+});
+
+function setStatus(msg, cls) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status-bar' + (cls ? ' ' + cls : '');
+}
+
+let results = [];
+const ok   = (cat,msg) => results.push({type:'pass',cat,msg});
+const fail = (cat,msg) => results.push({type:'fail',cat,msg});
+const warn = (cat,msg) => results.push({type:'warn',cat,msg});
+
+function runTests() {
+  results = [];
+  const html   = fileHtml;
+  // Escaped so these tag literals do not terminate this file's own script block
+  const OPEN_TAG  = '<scr' + 'ipt>';
+  const CLOSE_TAG = '<\/scr' + 'ipt>';
+  const sIdx   = html.indexOf(OPEN_TAG);
+  const script = sIdx >= 0 ? html.slice(sIdx) : '';
+
+  // ── 1. Structure ──────────────────────────────────────────────────────────
+  html.includes('<html') && html.includes('<\/html>')
+    ? ok('Structure','Valid HTML envelope')
+    : fail('Structure','Missing <html> tags');
+  script.includes(CLOSE_TAG)
+    ? ok('Structure','Script block present')
+    : fail('Structure','Missing script block');
+  html.split('{').length === html.split('}').length
+    ? ok('Structure','Braces balanced')
+    : warn('Structure','Unbalanced braces — check for a syntax error');
+  html.includes('src="../config.js"')
+    ? ok('Structure','Loads ../config.js (credentials from deploy secrets)')
+    : fail('Structure','config.js not loaded from parent folder — Supabase will be unconfigured');
+
+  // ── 2. Order basis: noon inventory ────────────────────────────────────────
+  // The order is calculated from the NOON count, never the closing count.
+  script.includes('function getItemValues')
+    ? ok('Order Logic','getItemValues() defined')
+    : fail('Order Logic','MISSING: getItemValues()');
+  /rawNeeded\s*=\s*isOrderDay\s*&&\s*noonInv\s*!==\s*null/.test(script)
+    ? ok('Order Logic','Order calculated from noon inventory, gated on order day')
+    : fail('Order Logic','Order no longer gated on (isOrderDay && noonInv !== null)');
+  /Math\.max\(par\s*-\s*noonInv,\s*0\)/.test(script)
+    ? ok('Order Logic','Auto order = PAR − noon inventory (floored at 0)')
+    : fail('Order Logic','Auto order formula changed — expected Math.max(par - noonInv, 0)');
+  /upk\s*>\s*1\s*\?\s*Math\.ceil\(rawNeeded\s*\/\s*upk\)/.test(script)
+    ? ok('Order Logic','Multi-unit packages rounded up to whole packages')
+    : warn('Order Logic','units_per_pkg rounding not found — loaf/package items may order fractions');
+
+  // ── 3. REGRESSION 2026-08-07: a pre-noon save froze the order at 0 ────────
+  // An early save (before the noon count) wrote order_qty = 0. Because a saved
+  // order_qty is read back as a MANUAL OVERRIDE, the later midday save kept the
+  // 0 instead of recalculating, and the Order tab reported "Nothing to order"
+  // while 11 items sat below PAR. Guard both halves of that fix.
+  /noonInv\s*===\s*null\s*\?\s*null\s*:\s*autoOrd/.test(script)
+    ? ok('Order Regression','saveDaily persists null (not 0) when there is no noon count')
+    : fail('Order Regression','REGRESSION: saveDaily can persist 0 with no noon count — an early save will freeze the order at zero');
+  /if\s*\(savedQty\s*===\s*auto\)\s*savedQty\s*=\s*null/.test(script)
+    ? ok('Order Regression','Saved value matching the auto-calc is not treated as a manual override')
+    : fail('Order Regression','REGRESSION: any saved order_qty is treated as a manual override — correcting a noon count will not recalculate the order');
+  /const\s+loadDow\s*=\s*new Date\(date\+'T12:00:00'\)\.getDay\(\)/.test(script)
+    ? ok('Order Regression','Load-time auto/override check uses the entry date day-of-week')
+    : fail('Order Regression','Load-time day-of-week missing — PAR lookup for the override check will be wrong');
+  // The override itself must still survive: a manager typing 0 means "skip it".
+  // Matches either formatting — this guards the behaviour, not the layout.
+  /d\.order_qty!==null\s*&&\s*d\.order_qty!==undefined[\s\S]{0,24}\?\s*d\.order_qty/.test(script)
+    ? ok('Order Regression','Explicit manual override still wins over the auto-calc')
+    : fail('Order Regression','Manual override no longer takes precedence — staff cannot override an order');
+
+  // ── 4. REGRESSION: Order tab PAR column showed the base catalog PAR ───────
+  // renderOrder spread the catalog item (par = 0 for every bakery item, since
+  // the real PARs live per day-of-week in catalog_day_par), so PAR read 0.
+  /qty:orderVal,autoOrd,isOv,par\}/.test(script)
+    ? ok('Order Regression','Order table shows the effective day-of-week PAR')
+    : fail('Order Regression','REGRESSION: renderOrder does not override par after the item spread — PAR column will show the base catalog PAR (0)');
+
+  // ── 5. Per-day PAR + order schedule ───────────────────────────────────────
+  script.includes('dayParOverrides')
+    ? ok('Schedule','dayParOverrides loaded from catalog_day_par')
+    : fail('Schedule','MISSING: dayParOverrides — per-day PAR will not apply');
+  /dayParOverrides\[id\]\?\.\[currentEntryDow\]\s*\?\?\s*item\.par/.test(script)
+    ? ok('Schedule','Per-day PAR falls back to the catalog default')
+    : fail('Schedule','Per-day PAR lookup/fallback changed');
+  script.includes('orderScheduleLoaded')
+    ? ok('Schedule','orderScheduleLoaded fallback flag present')
+    : fail('Schedule','MISSING: orderScheduleLoaded — all days would be treated as order days');
+  /!orderScheduleLoaded\s*\|\|\s*orderDays\.has/.test(script)
+    ? ok('Schedule','Unloaded schedule falls back to treating every day as an order day')
+    : warn('Schedule','Order-day fallback changed — verify behaviour when order_schedule is unreachable');
+  script.includes('Not an order day')
+    ? ok('Schedule','Order tab shows a "Not an order day" message')
+    : warn('Schedule','"Not an order day" message missing');
+
+  // ── 6. Save behaviour ─────────────────────────────────────────────────────
+  script.includes('async function saveDaily')
+    ? ok('Save','saveDaily() defined')
+    : fail('Save','MISSING: saveDaily()');
+  script.includes("method:'DELETE'") && script.includes("method:'POST'")
+    ? ok('Save','Delete-then-reinsert save pattern intact')
+    : fail('Save','Save pattern changed — expected DELETE then POST');
+  /i\+=50/.test(script)
+    ? ok('Save','Rows posted in batches of 50')
+    : warn('Save','Batch size changed from 50');
+  script.includes('savingOrderDay')
+    ? ok('Save','Order-day captured at save time')
+    : fail('Save','savingOrderDay missing — non-order-day saves may write order quantities');
+
+  // ── 7. Supabase tables ────────────────────────────────────────────────────
+  ['bakery_catalog','bakery_daily','catalog_day_par','order_schedule',
+   'square_mappings','square_opening_inventory'].forEach(t => {
+    script.includes(t)
+      ? ok('Supabase','Queries ' + t)
+      : fail('Supabase','MISSING query for table: ' + t);
+  });
+  script.includes('function supaHeaders')
+    ? ok('Supabase','supaHeaders() defined')
+    : fail('Supabase','MISSING: supaHeaders()');
+  // The costing app added columns to the INVENTORY catalog table; the bakery
+  // app must never read it (see Costing Spec v1.1 §6, shared-DB decision).
+  /rest\/v1\/catalog\?/.test(script)
+    ? fail('Supabase','Bakery app queries the inventory catalog table — it must only use bakery_catalog')
+    : ok('Supabase','Does not touch the inventory catalog table');
+
+  // ── 8. Order tab rendering ────────────────────────────────────────────────
+  script.includes('function renderOrder')
+    ? ok('Order Tab','renderOrder() defined')
+    : fail('Order Tab','MISSING: renderOrder()');
+  script.includes('Nothing to order')
+    ? ok('Order Tab','Empty-order message present')
+    : warn('Order Tab','"Nothing to order" message missing');
+  /orderVal\s*>\s*0/.test(script)
+    ? ok('Order Tab','Only items with a positive order quantity are listed')
+    : fail('Order Tab','Order filter changed — zero-quantity items may appear');
+  script.includes('byVendor')
+    ? ok('Order Tab','Orders grouped by vendor')
+    : fail('Order Tab','Vendor grouping missing');
+
+  // ── 9. Auth ───────────────────────────────────────────────────────────────
+  script.includes('const PINS')
+    ? ok('Auth','PINS constant defined')
+    : fail('Auth','MISSING: PINS');
+  script.includes('MANAGER_TABS')
+    ? ok('Auth','MANAGER_TABS gating present')
+    : fail('Auth','MISSING: MANAGER_TABS');
+
+  // ── 10. Email ─────────────────────────────────────────────────────────────
+  script.includes('function emailVendor')
+    ? ok('Email','emailVendor() defined')
+    : fail('Email','MISSING: emailVendor()');
+  script.includes('getVendorEmail')
+    ? ok('Email','getVendorEmail() defined')
+    : fail('Email','MISSING: getVendorEmail()');
+  script.includes('testMode')
+    ? ok('Email','Test Mode redirect present')
+    : warn('Email','Test Mode not found — vendor emails cannot be safely tested');
+
+  render();
+}
+
+function render() {
+  const passes = results.filter(r=>r.type==='pass').length;
+  const fails  = results.filter(r=>r.type==='fail').length;
+  const warns  = results.filter(r=>r.type==='warn').length;
+
+  document.getElementById('summary').style.display = '';
+  document.getElementById('s-total').textContent = results.length;
+  document.getElementById('s-pass').textContent  = passes;
+  document.getElementById('s-fail').textContent  = fails;
+  document.getElementById('s-warn').textContent  = warns;
+
+  const icons = {pass:'✅', fail:'❌', warn:'⚠️'};
+  const cats = {};
+  for (const r of results) (cats[r.cat] = cats[r.cat] || []).push(r);
+
+  let html2 = '';
+  for (const [cat, rows] of Object.entries(cats)) {
+    const catFails = rows.filter(r=>r.type==='fail').length;
+    const catWarn  = rows.filter(r=>r.type==='warn').length;
+    const badge = catFails ? `<span style="color:#e74c3c">${catFails} ✗</span>`
+                : catWarn  ? `<span style="color:#f39c12">${catWarn} ⚠</span>`
+                           : `<span style="color:#27ae60">all pass</span>`;
+    html2 += `<div class="section"><div class="section-hdr">${cat} &nbsp; ${badge}</div>`;
+    const order = {fail:0, warn:1, pass:2};
+    for (const r of [...rows].sort((a,b)=>order[a.type]-order[b.type])) {
+      html2 += `<div class="test-row">
+        <span class="test-icon">${icons[r.type]}</span>
+        <span class="test-msg ${r.type}">${r.msg}</span>
+        <span class="test-tag">${r.type.toUpperCase()}</span>
+      </div>`;
+    }
+    html2 += '</div>';
+  }
+  document.getElementById('results').innerHTML = html2;
+
+  if (fails === 0) {
+    setStatus('✅ All tests passed — ' + passes + ' checks OK, ' + warns + ' warnings. Ready to deploy.', 'ready');
+  } else {
+    setStatus('❌ ' + fails + ' test(s) failed — fix before deploying. ' + warns + ' warning(s).', 'error');
+  }
+}
+</script>
+</body>
+</html>
